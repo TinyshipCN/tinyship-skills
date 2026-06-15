@@ -63,7 +63,44 @@ pnpm db:seed:sqlite
 
 ### If the user chooses PostgreSQL:
 
-**Via Docker (recommended):**
+**Before asking the user for connection details, auto-detect the local PostgreSQL environment:**
+
+1. Run `pg_isready` to check if PostgreSQL is running locally.
+2. If PostgreSQL IS running:
+   - Tell the user: "PostgreSQL is already running on your machine."
+   - Attempt to create a `tinyship` database automatically:
+     ```bash
+     # Try common superuser accounts to create the database
+     createdb tinyship 2>/dev/null || \
+       createdb -U postgres tinyship 2>/dev/null || \
+       createdb -U $(whoami) tinyship 2>/dev/null
+     ```
+   - If database creation succeeds, detect the connection string:
+     ```bash
+     # Determine the PostgreSQL user and port from pg_isready output or defaults
+     # Common patterns:
+     #   macOS Homebrew/Postgres.app: user = current OS user, port = 5432
+     #   Linux system install: user = postgres, port = 5432
+     ```
+   - Build the `DATABASE_URL` automatically. Common local patterns:
+     - `postgresql://localhost:5432/tinyship` (macOS Postgres.app / Homebrew, peer auth)
+     - `postgresql://postgres:postgres@localhost:5432/tinyship` (Linux with password)
+     - `postgresql://<os-username>@localhost:5432/tinyship` (macOS with username)
+   - Show the detected connection string to the user and ask for confirmation before using it.
+   - If database creation fails, tell the user and fall back to asking for manual input.
+3. If PostgreSQL is NOT running:
+   - Tell the user PostgreSQL is not detected on this machine.
+   - Offer these sub-options:
+     - **Docker**: Spin up a containerized PostgreSQL (requires Docker running)
+     - **Manual**: User provides their own connection string
+
+**Auto-detect succeeded — set in `.env`:**
+```
+DB_DIALECT="pg"
+DATABASE_URL="<the auto-detected or confirmed connection string>"
+```
+
+**Docker fallback — run:**
 ```bash
 docker run --name tinyship-db \
   -e POSTGRES_USER=tinyship \
@@ -79,7 +116,7 @@ DB_DIALECT="pg"
 DATABASE_URL="postgresql://tinyship:tinyship123@localhost:5432/tinyship"
 ```
 
-Then run:
+**After database is configured (any method), run:**
 ```bash
 pnpm install
 pnpm db:push
