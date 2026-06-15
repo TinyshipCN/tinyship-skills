@@ -1,7 +1,7 @@
 # Framework Cleanup Procedure
 
-When the user chooses to keep only one framework, follow this procedure to thoroughly
-remove the other two.
+**Prerequisites:** The user has already chosen a framework in Step 3 and explicitly
+confirmed they want to remove the others in Step 4.
 
 ## Determine What to Remove
 
@@ -32,7 +32,10 @@ rm -rf apps/next-app apps/nuxt-app
 
 ### 2. Update pnpm-workspace.yaml
 
-Remove the deleted app entries. Only keep the remaining app and `packages/*`:
+If the workspace file uses an `apps/*` wildcard glob, no changes are needed — the
+deleted directories are automatically excluded.
+
+If it lists apps explicitly, remove the deleted app entries:
 
 ```yaml
 packages:
@@ -42,28 +45,42 @@ packages:
 
 ### 3. Update turbo.json
 
-Remove pipeline entries that reference deleted apps. Look for filter patterns
-like `@tinyship/nuxt-app` or `@tinyship/tanstack-app` and remove them.
+Remove output patterns that only apply to deleted frameworks:
+- If removing Nuxt: remove `.nuxt/**` and `.output/**` from build outputs
+- If removing Next: remove `.next/**` from build outputs
+- If removing TanStack: remove `dist/**` from build outputs (if only used by TanStack)
 
 ### 4. Update root package.json scripts
 
-Remove dev/build/typecheck scripts for deleted apps:
+Remove dev/build/start/typecheck scripts for deleted apps:
 
-- If removing Next: delete `dev:next`, `build:next`, scripts with `--filter @tinyship/next-app`
-- If removing Nuxt: delete `dev:nuxt`, `build:nuxt`, scripts with `--filter @tinyship/nuxt-app`
-- If removing TanStack: delete `dev:tanstack`, `build:tanstack`, scripts with `--filter @tinyship/tanstack-app`
+- If removing Next: delete `dev:next`, `build:next`, `start:next`, `typecheck:next`, and scripts with `--filter @tinyship/next-app`
+- If removing Nuxt: delete `dev:nuxt`, `build:nuxt`, `start:nuxt`, `typecheck:nuxt`, and scripts with `--filter @tinyship/nuxt-app`
+- If removing TanStack: delete `dev:tanstack`, `build:tanstack`, `start:tanstack`, `typecheck:tanstack`, and scripts with `--filter @tinyship/tanstack-app`
 
-Keep the remaining app's scripts. Consider renaming `dev:next` to just `dev` for simplicity.
+**Rename the remaining app's scripts for simplicity:**
+- `dev:next` → `dev`
+- `build:next` → `build`
+- `start:next` → `start`
+- `typecheck:next` → `typecheck`
+
+(Same pattern for whichever framework is kept.)
 
 ### 5. Update docker-compose.yml
 
 Remove service definitions and profiles for deleted apps. Each app has its own
 service block and Docker profile (`--profile next`, `--profile nuxt`, `--profile tanstack`).
 
+With only one app remaining, the profile system is no longer needed — remove
+the `profiles:` key from the remaining service so it starts by default.
+
 ### 6. Update .github/workflows/ci.yml
 
-Remove build and verify jobs for deleted apps. The CI workflow has separate jobs
-for each app's typecheck, build, and Docker verification.
+Remove build steps and Docker build verification for deleted apps. The CI workflow
+has separate steps for each app's build and Docker image verification.
+
+Update the remaining build step to use the simplified script name (e.g., `pnpm build`
+instead of `pnpm build:next`).
 
 ### 7. Update root AGENTS.md
 
@@ -79,17 +96,17 @@ Edit the `AGENTS.md` file to:
 # Reinstall to clean up lockfile
 pnpm install
 
-# Run typecheck on remaining app (replace with actual app filter)
-pnpm --filter @tinyship/next-app typecheck
+# Run typecheck on remaining app
+pnpm typecheck
 
 # Run build on remaining app
-pnpm --filter @tinyship/next-app build
+pnpm build
 ```
 
-If both pass, the cleanup is complete.
+If both pass, the cleanup is complete. Tell the user the results.
 
 ### 9. Optional: simplify docs-app references
 
-If the user also wants to simplify the docs site (`apps/docs-app`), remove
-documentation pages that reference the deleted frameworks. This is optional
+Ask the user if they also want to simplify the docs site (`apps/docs-app`) by
+removing documentation pages that reference the deleted frameworks. This is optional
 since the docs can serve as reference material.

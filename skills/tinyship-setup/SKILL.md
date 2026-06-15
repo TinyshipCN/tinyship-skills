@@ -11,6 +11,10 @@ description: >-
 
 Interactive setup wizard for TinyShip SaaS starter projects.
 
+**This is a conversational, step-by-step wizard. You MUST ask the user at each
+decision point and wait for their answer before proceeding. NEVER make choices
+on the user's behalf.**
+
 ## Prerequisites
 
 Before starting, verify:
@@ -18,33 +22,28 @@ Before starting, verify:
 1. **Node.js >= 22.20.0** — run `node -v` to check (required due to Nuxt 4 oxc-parser native bindings)
 2. **pnpm >= 9.0.0** — run `pnpm -v` to check. Install with `npm install -g pnpm` if missing
 
+If prerequisites fail, tell the user what to install and STOP.
+
 ## Step 1: Environment Configuration
 
 1. Copy the template: `cp env.example .env`
-2. Open `.env` and configure the **required** variables:
+2. Generate an auth secret: `openssl rand -hex 32`
+3. Set the generated secret in `.env` as `BETTER_AUTH_SECRET`
 
-```
-APP_BASE_URL=http://localhost:7001
+Do NOT configure the database dialect yet — that depends on the user's choice in Step 2.
 
-# Database (pick one)
-DB_DIALECT="pg"
-DATABASE_URL="postgresql://username:password@localhost:5432/tinyship"
-# OR for quick start:
-# DB_DIALECT="sqlite"
+## Step 2: Choose Database
 
-# Auth (required)
-BETTER_AUTH_SECRET="<generate with: openssl rand -hex 32>"
-BETTER_AUTH_URL="http://localhost:7001"
-```
+**⛔ STOP — You MUST ask the user before proceeding.**
 
-All other variables (OAuth, payment, AI, storage) are optional and can be configured later
-using the other TinyShip skills.
+Present these options and wait for the user's response:
 
-## Step 2: Database Setup
+| Option | Database | Best For |
+|--------|----------|----------|
+| **A** | **SQLite** | Quickest start, zero setup, local development |
+| **B** | **PostgreSQL** | Production use, team collaboration |
 
-Ask the user which database they prefer:
-
-### Option A: SQLite (quickest start, zero setup)
+### If the user chooses SQLite:
 
 Set in `.env`:
 ```
@@ -53,12 +52,16 @@ DB_DIALECT="sqlite"
 
 Then run:
 ```bash
+mkdir -p data
 pnpm install
 pnpm db:push:sqlite
 pnpm db:seed:sqlite
 ```
 
-### Option B: PostgreSQL (recommended for production)
+> **Important:** The `mkdir -p data` step is required — SQLite needs the `data/`
+> directory to exist before the database file can be created.
+
+### If the user chooses PostgreSQL:
 
 **Via Docker (recommended):**
 ```bash
@@ -90,43 +93,61 @@ pnpm db:seed
 
 ## Step 3: Choose Framework
 
-Ask the user: **Which framework do you want to use?**
+**⛔ STOP — You MUST ask the user before proceeding.**
 
-| Framework | Best For | Command |
-|-----------|----------|---------|
-| **Next.js** | React developers, Vercel deployment | `pnpm dev:next` |
-| **Nuxt.js** | Vue developers | `pnpm dev:nuxt` |
-| **TanStack Start** | Lightweight React, Cloudflare Workers | `pnpm dev:tanstack` |
+Present these options and wait for the user's response:
 
-Start the chosen framework and verify:
-1. Open `http://localhost:7001` — home page should load
-2. Check `http://localhost:7001/api/health` — should return OK
-3. Try logging in with `admin@example.com` / `admin123`
+| Option | Framework | Best For | Dev Command |
+|--------|-----------|----------|-------------|
+| **A** | **Next.js** | React developers, Vercel deployment, largest ecosystem | `pnpm dev:next` |
+| **B** | **Nuxt.js** | Vue developers, convention-over-configuration | `pnpm dev:nuxt` |
+| **C** | **TanStack Start** | Lightweight React, Cloudflare Workers edge deployment | `pnpm dev:tanstack` |
+
+After the user chooses, start the selected framework and verify:
+
+1. Run the dev command (e.g., `pnpm dev:next`)
+2. Open `http://localhost:7001` — home page should load
+3. Check `http://localhost:7001/api/health` — should return a response
+4. Try logging in with `admin@example.com` / `admin123`
+
+Tell the user the results of each verification step.
 
 ## Step 4: Framework Cleanup (Optional)
 
-After confirming the app works, ask: **Do you want to remove the other two frameworks to simplify your project?**
+**⛔ STOP — You MUST ask the user before proceeding. Do NOT delete anything without explicit confirmation.**
 
-If yes, read and follow the detailed cleanup procedure in [references/framework-cleanup.md](references/framework-cleanup.md).
+After confirming the app works, ask the user:
 
-This cleanup:
-- Deletes unused `apps/` directories
-- Cleans up workspace config, build scripts, Docker, and CI
-- Removes `libs/react-shared` if only keeping Nuxt
-- Verifies the remaining app still builds correctly
+> **Your project currently includes all three frameworks (Next.js, Nuxt.js, TanStack Start).
+> Would you like to remove the two you're not using to simplify your project?**
+>
+> - **Yes** — Remove unused frameworks and clean up all related configuration
+> - **No** — Keep all three (you can always remove them later)
+
+**Only proceed with cleanup if the user explicitly says yes.**
+
+If yes, read and follow the detailed cleanup procedure in
+[references/framework-cleanup.md](references/framework-cleanup.md).
+
+This cleanup will:
+- Delete unused `apps/` directories
+- Clean up workspace config, build scripts, Docker, and CI
+- Remove `libs/react-shared` if only keeping Nuxt (it's React-only)
+- Verify the remaining app still builds correctly
 
 ## Step 5: Next Steps
 
-After setup is complete, suggest:
+After setup is complete, tell the user what they can do next:
 
 1. **Customize branding** — change app name, logo, theme (use `tinyship-brand` skill)
 2. **Add authentication** — configure OAuth providers (use `tinyship-auth` skill)
 3. **Set up payments** — integrate payment providers (use `tinyship-payment` skill)
-4. **Configure AI** — set up AI chat/image/video (use `tinyship-ai` skill)
+4. **Configure AI** — set up AI chat/image/video features (use `tinyship-ai` skill)
+5. **Deploy** — deploy to Vercel, Docker, or Cloudflare (use `tinyship-deploy` skill)
 
 ## Reference Files in TinyShip Repo
 
-When executing this skill, read these files from the user's TinyShip project:
+When executing this skill, read these files from the user's TinyShip project for context:
 
 - `env.example` — full list of environment variables with descriptions
 - `docs/user-guide/get-started.md` — detailed getting started guide
