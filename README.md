@@ -32,6 +32,7 @@ npx skills add TinyshipCN/tinyship-skills --list
 | **tinyship-feature** | New feature development — guided monorepo feature workflow with libs, config, i18n, permissions |
 | **tinyship-deploy** | Deployment guide — Docker, Vercel, Cloudflare Workers, VPS/PM2 |
 | **tinyship-ai** | AI feature integration — chat, image generation, video generation with credit system |
+| **tinyship-cloudflare** | All-in Cloudflare setup — Workers + D1/Hyperdrive + R2 + Email Sending + Turnstile |
 
 ## Usage
 
@@ -42,6 +43,7 @@ After installation, just ask your AI agent naturally:
 - *"Add Stripe payment"* → triggers `tinyship-payment`
 - *"Deploy to Docker"* → triggers `tinyship-deploy`
 - *"Add a new feature for user profiles"* → triggers `tinyship-feature`
+- *"Set up Cloudflare for my project"* → triggers `tinyship-cloudflare`
 
 ## Supported Agents
 

@@ -13,6 +13,7 @@ When a user asks for help with their TinyShip project, direct them to the releva
 - **Deployment**: `skills/tinyship-deploy/SKILL.md` — Docker, Vercel, Cloudflare Workers, VPS
 - **New Features**: `skills/tinyship-feature/SKILL.md` — monorepo feature development checklist
 - **AI Integration**: `skills/tinyship-ai/SKILL.md` — chat, image gen, video gen providers
+- **Cloudflare All-in**: `skills/tinyship-cloudflare/SKILL.md` — Workers + D1/Hyperdrive + R2 + Email + Turnstile
 
 ## Skill Format
 
