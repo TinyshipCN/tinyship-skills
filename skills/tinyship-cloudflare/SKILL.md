@@ -49,7 +49,43 @@ Capture the **Account ID** from the output — it will be reused for R2 and Emai
 If the user is already logged in (`wrangler whoami` shows account info), skip this step
 and tell the user.
 
-## Step 2: Database — D1 or Hyperdrive
+## Step 2: Framework Cleanup
+
+**⛔ STOP — You MUST ask the user before proceeding.**
+
+Since Cloudflare Workers only supports TanStack Start, the Next.js and Nuxt.js apps
+are not needed for a Cloudflare-only deployment. Ask the user:
+
+**You've chosen the all-in Cloudflare path, which uses TanStack Start exclusively.
+Do you want to remove the Next.js and Nuxt.js apps from the project?**
+
+| Option | Action |
+|--------|--------|
+| **Yes — clean up** | Remove `apps/next-app` and `apps/nuxt-app`, update workspace config |
+| **No — keep them** | Leave them in place (useful if you also plan Node.js deployments) |
+
+### If the user chooses Yes:
+
+Follow the cleanup procedure from the `tinyship-setup` skill:
+read and follow [../tinyship-setup/references/framework-cleanup.md](../tinyship-setup/references/framework-cleanup.md)
+using **TanStack Start** as the kept framework.
+
+Summary of what to do:
+1. `rm -rf apps/next-app apps/nuxt-app`
+2. Update `turbo.json` — remove `.nuxt/**`, `.output/**`, `.next/**` from build outputs
+3. Update root `package.json` — remove `dev:next`, `build:next`, `dev:nuxt`, `build:nuxt` etc.,
+   rename `dev:tanstack` → `dev`, `build:tanstack` → `build`, etc.
+4. Update `docker-compose.yml` — remove `next-app` and `nuxt-app` services
+5. Update `.github/workflows/ci.yml` — remove build steps for deleted apps
+6. Run `pnpm install` to clean up the lockfile
+
+After cleanup, run `pnpm typecheck` and `pnpm build` (which now point to TanStack) to verify.
+
+### If the user chooses No:
+
+Skip this step. The other apps remain in the project but won't be deployed to Workers.
+
+## Step 3: Database — D1 or Hyperdrive
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
@@ -81,7 +117,7 @@ pnpm dev:cf
 
 Check that the app loads and database-dependent pages work. Tell the user the results.
 
-## Step 3: R2 Storage (Optional)
+## Step 4: R2 Storage (Optional)
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
@@ -90,7 +126,7 @@ Ask: **Do you want to set up Cloudflare R2 for file storage (images, uploads)?**
 - **Yes** — read and follow [references/r2-setup.md](references/r2-setup.md)
 - **No** — skip (can be configured later)
 
-## Step 4: Email Sending (Optional)
+## Step 5: Email Sending (Optional)
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
@@ -100,7 +136,7 @@ Ask: **Do you want to use Cloudflare Email Sending for transactional emails
 - **Yes** — read and follow [references/email-setup.md](references/email-setup.md)
 - **No** — skip (default is Resend, or configure later)
 
-## Step 5: Turnstile Bot Protection (Optional)
+## Step 6: Turnstile Bot Protection (Optional)
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
@@ -109,7 +145,7 @@ Ask: **Do you want to enable Cloudflare Turnstile (CAPTCHA) for login/signup pro
 - **Yes** — read and follow [references/turnstile-setup.md](references/turnstile-setup.md)
 - **No** — skip (disabled by default, safe to add later)
 
-## Step 6: Deploy to Workers
+## Step 7: Deploy to Workers
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
@@ -118,13 +154,14 @@ Ask: **Do you want to deploy to Cloudflare Workers now, or just finish the local
 - **Deploy now** — read and follow [references/workers-deploy.md](references/workers-deploy.md)
 - **Later** — tell the user they can deploy anytime with `cd apps/tanstack-app && pnpm run deploy:cf`
 
-## Step 7: Summary
+## Step 8: Summary
 
 After setup is complete, provide a summary of what was configured:
 
 ```
 ✅ Cloudflare Setup Complete
 ─────────────────────────────
+Frameworks: TanStack Start only [Next/Nuxt removed / kept]
 Workers:    TanStack Start on Cloudflare Workers
 Database:   [D1 / Hyperdrive+PG] — configured and verified
 Storage:    [R2 / skipped]
