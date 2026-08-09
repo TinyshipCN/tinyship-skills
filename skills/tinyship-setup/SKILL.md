@@ -149,7 +149,47 @@ After the user chooses, start the selected framework and verify:
 
 Tell the user the results of each verification step.
 
-## Step 4: Framework Cleanup (Optional)
+## Step 4: Choose Pricing Mode (Optional)
+
+**⛔ STOP — You MUST ask the user before proceeding.**
+
+TinyShip supports two pricing modes. Present these options:
+
+| Option | Mode | Best For |
+|--------|------|----------|
+| **A** | **Static (default)** | Simple setup, plans defined in code, deploy to update |
+| **B** | **Dynamic** | Admin UI management, update plans without redeployment |
+
+### If the user chooses Static (or skips):
+
+No additional configuration needed. Plans are defined in `config/payment.ts` and
+shown directly on the pricing page. This is the default behavior.
+
+### If the user chooses Dynamic:
+
+Set in `.env`:
+```
+PRICING_MODE="dynamic"
+```
+
+Dynamic pricing stores plans in the database and provides an admin UI at `/admin/pricing`
+for creating, editing, and managing plans without code changes. Features include:
+
+- Multi-language plan names/descriptions (extensible i18n tabs)
+- Markdown-supported feature lists
+- Strikethrough pricing (original price display)
+- Locale-based plan filtering
+- Per-provider payment IDs (Stripe Price ID, PayPal Plan ID, etc.)
+- Import existing static plans into the database with one click
+
+> **Note:** The database migration for `pricing_plan` table is already included.
+> The seed data creates 5 example plans covering different providers and currencies.
+> You can manage all plans via the admin panel at `/admin/pricing` after setup.
+
+Tell the user: "You can always switch between modes later by changing `PRICING_MODE`
+in your `.env` file. Static plans in `config/payment.ts` remain available as a fallback."
+
+## Step 5: Framework Cleanup (Optional)
 
 **⛔ STOP — You MUST ask the user before proceeding. Do NOT delete anything without explicit confirmation.**
 
@@ -172,7 +212,7 @@ This cleanup will:
 - Remove `libs/react-shared` if only keeping Nuxt (it's React-only)
 - Verify the remaining app still builds correctly
 
-## Step 5: Next Steps
+## Step 6: Next Steps
 
 After setup is complete, tell the user what they can do next:
 
@@ -189,5 +229,6 @@ When executing this skill, read these files from the user's TinyShip project for
 - `env.example` — full list of environment variables with descriptions
 - `docs/user-guide/get-started.md` — detailed getting started guide
 - `docs/user-guide/database.md` — database configuration details
+- `docs/user-guide/payment/dynamic-pricing.md` — dynamic pricing feature guide
 - `pnpm-workspace.yaml` — workspace structure
 - `package.json` — available scripts

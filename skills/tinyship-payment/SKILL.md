@@ -3,10 +3,12 @@ name: tinyship-payment
 description: >-
   Set up payment providers for TinyShip: Stripe, PayPal, WeChat Pay, Alipay,
   Creem, and Dodo Payments. Covers sandbox/test mode, webhook setup, pricing
-  plans, and credit system. Use when the user asks to "set up stripe",
-  "configure payment", "add wechat pay", "configure alipay", "set up paypal",
-  "payment integration", "configure pricing plans", "add billing",
-  or "set up credits".
+  plans (static config or dynamic admin-managed), and credit system. Use when
+  the user asks to "set up stripe", "configure payment", "add wechat pay",
+  "configure alipay", "set up paypal", "payment integration",
+  "configure pricing plans", "add billing", "set up credits",
+  "dynamic pricing", "manage plans in admin", or "change price without
+  redeploying".
 ---
 
 # TinyShip Payment Integration
@@ -39,7 +41,11 @@ For Creem and Dodo Payments, read `docs/user-guide/payment/creem.md` and
 
 ## Configure Pricing Plans
 
-After setting up a provider, configure plans in `config/payment.ts`:
+After setting up a provider, you can configure plans in two ways:
+
+### Option A: Static Plans (default)
+
+Define plans directly in `config/payment.ts`:
 
 ```typescript
 plans: {
@@ -69,6 +75,35 @@ plans: {
 ```
 
 Plans automatically appear on the `/pricing` page.
+
+### Option B: Dynamic Pricing (admin-managed)
+
+Set `PRICING_MODE="dynamic"` in `.env` to enable. Plans are then stored in the
+database and managed via the admin panel at `/admin/pricing` — prices can be
+adjusted anytime without code changes or redeployment.
+
+Fresh projects already include the `pricing_plan` table in the schema, so a
+normal database init covers it. Projects upgraded from older versions must add
+the table first:
+
+```bash
+pnpm db:push          # PostgreSQL
+pnpm db:push:sqlite   # SQLite / D1
+```
+
+Dynamic pricing adds:
+- Creating/editing/reordering plans from the admin UI
+- Markdown-formatted feature lists
+- Strikethrough pricing (original price)
+- Locale-based plan visibility
+- One-click import of existing static plans into the database
+
+To migrate existing static plans: enable dynamic mode, open `/admin/pricing`,
+click "Import from Config", verify each plan's provider IDs, then run a test
+payment. Switch back anytime by setting `PRICING_MODE="static"` and restarting —
+dynamic plan data is preserved.
+
+See `docs/user-guide/payment/dynamic-pricing.md` in the TinyShip repo for full details.
 
 ### Plan Types
 
@@ -143,4 +178,5 @@ credits100: {
 - `libs/payment/AGENTS.md` — payment library architecture
 - `libs/credits/AGENTS.md` — credit system architecture
 - `docs/user-guide/payment/overview.md` — payment documentation index
+- `docs/user-guide/payment/dynamic-pricing.md` — dynamic pricing admin guide
 - `docs/user-guide/payment-testing.md` — testing and webhook debug guide
