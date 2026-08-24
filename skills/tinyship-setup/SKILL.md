@@ -15,6 +15,13 @@ Interactive setup wizard for TinyShip SaaS starter projects.
 decision point and wait for their answer before proceeding. NEVER make choices
 on the user's behalf.**
 
+## Step 0: Detect Template
+
+Read [../../references/template-detection.md](../../references/template-detection.md)
+and detect which template the current project is (**shipeasy** or **tinyship-cf**).
+Follow the matching branch in each step below. For tinyship-cf, steps marked
+"shipeasy only" are skipped entirely.
+
 ## Prerequisites
 
 Before starting, verify:
@@ -26,9 +33,15 @@ If prerequisites fail, tell the user what to install and STOP.
 
 ## Step 1: Environment Configuration
 
+**shipeasy:**
 1. Copy the template: `cp env.example .env`
 2. Generate an auth secret: `openssl rand -hex 32`
 3. Set the generated secret in `.env` as `BETTER_AUTH_SECRET`
+
+**tinyship-cf:**
+1. Copy the template: `cp apps/tanstack-app/.dev.vars.example apps/tanstack-app/.dev.vars`
+2. Generate an auth secret: `openssl rand -hex 32`
+3. Set the generated secret in `.dev.vars` as `BETTER_AUTH_SECRET`
 
 Do NOT configure the database dialect yet — that depends on the user's choice in Step 2.
 
@@ -36,7 +49,18 @@ Do NOT configure the database dialect yet — that depends on the user's choice 
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
-Present these options and wait for the user's response:
+**tinyship-cf:** the default (and recommended) database is **Cloudflare D1** — it is
+already bound in `wrangler.jsonc` and needs no connection string. Simply run:
+
+```bash
+cd apps/tanstack-app
+npx wrangler d1 migrations apply tinyship-db --local
+```
+
+Then skip to Step 3. If the user specifically wants PostgreSQL (Hyperdrive), hand off
+to the `tinyship-cloudflare` skill's Hyperdrive path.
+
+**shipeasy:** present these options and wait for the user's response:
 
 | Option | Database | Best For |
 |--------|----------|----------|
@@ -128,7 +152,7 @@ pnpm db:seed
 - **Admin**: `admin@example.com` / `admin123` (role: admin)
 - **User**: `user@example.com` / `user123456` (role: user)
 
-## Step 3: Choose Framework
+## Step 3: Choose Framework (shipeasy only)
 
 **⛔ STOP — You MUST ask the user before proceeding.**
 
@@ -140,9 +164,15 @@ Present these options and wait for the user's response:
 | **B** | **Nuxt.js** | Vue developers, convention-over-configuration | `pnpm dev:nuxt` |
 | **C** | **TanStack Start** | Lightweight React, Cloudflare Workers edge deployment | `pnpm dev:tanstack` |
 
-After the user chooses, start the selected framework and verify:
+> **Note:** For a Cloudflare Workers deployment, recommend starting from the
+> **tinyship-cf** template instead — it is preconfigured for Workers with no hacks.
 
-1. Run the dev command (e.g., `pnpm dev:next`)
+**tinyship-cf:** skip selection — TanStack Start is the only framework. Dev command
+is `pnpm dev`.
+
+After the user chooses (or for tinyship-cf), start the app and verify:
+
+1. Run the dev command (e.g., `pnpm dev:next` / `pnpm dev`)
 2. Open `http://localhost:7001` — home page should load
 3. Check `http://localhost:7001/api/health` — should return a response
 4. Try logging in with `admin@example.com` / `admin123`
@@ -167,7 +197,7 @@ shown directly on the pricing page. This is the default behavior.
 
 ### If the user chooses Dynamic:
 
-Set in `.env`:
+Set in `.env` (shipeasy) or `apps/tanstack-app/.dev.vars` (tinyship-cf):
 ```
 PRICING_MODE="dynamic"
 ```
@@ -183,13 +213,14 @@ for creating, editing, and managing plans without code changes. Features include
 - Import existing static plans into the database with one click
 
 > **Note:** The database migration for `pricing_plan` table is already included.
-> The seed data creates 5 example plans covering different providers and currencies.
 > You can manage all plans via the admin panel at `/admin/pricing` after setup.
+> For tinyship-cf, `PRICING_MODE` also needs to be set in `wrangler.jsonc` `vars`
+> for the deployed Worker.
 
 Tell the user: "You can always switch between modes later by changing `PRICING_MODE`
-in your `.env` file. Static plans in `config/payment.ts` remain available as a fallback."
+in your env file. Static plans in `config/payment.ts` remain available as a fallback."
 
-## Step 5: Framework Cleanup (Optional)
+## Step 5: Framework Cleanup (Optional, shipeasy only)
 
 **⛔ STOP — You MUST ask the user before proceeding. Do NOT delete anything without explicit confirmation.**
 
@@ -220,13 +251,14 @@ After setup is complete, tell the user what they can do next:
 2. **Add authentication** — configure OAuth providers (use `tinyship-auth` skill)
 3. **Set up payments** — integrate payment providers (use `tinyship-payment` skill)
 4. **Configure AI** — set up AI chat/image/video features (use `tinyship-ai` skill)
-5. **Deploy** — deploy to Vercel, Docker, or Cloudflare (use `tinyship-deploy` skill)
+5. **Deploy** — deploy to Vercel, Docker, or Cloudflare (use `tinyship-deploy` skill;
+   for Cloudflare Workers, use `tinyship-cloudflare` for the all-in setup)
 
 ## Reference Files in TinyShip Repo
 
 When executing this skill, read these files from the user's TinyShip project for context:
 
-- `env.example` — full list of environment variables with descriptions
+- `env.example` (shipeasy) / `apps/tanstack-app/.dev.vars.example` (tinyship-cf) — environment variables
 - `docs/user-guide/get-started.md` — detailed getting started guide
 - `docs/user-guide/database.md` — database configuration details
 - `docs/user-guide/payment/dynamic-pricing.md` — dynamic pricing feature guide

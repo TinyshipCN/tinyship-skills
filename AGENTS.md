@@ -21,3 +21,9 @@ Each skill follows the [Agent Skills specification](https://agentskills.io):
 - `SKILL.md` with YAML frontmatter (`name` + `description`)
 - Optional `references/` subdirectory for progressive disclosure
 - Content stays under 500 lines per SKILL.md
+
+## Shared References
+
+- `references/template-detection.md` — detect shipeasy vs tinyship-cf and the
+  difference cheat sheet. Setup/configuration skills should read it first and
+  follow the branch for the detected template.
