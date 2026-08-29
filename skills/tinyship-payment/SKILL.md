@@ -2,13 +2,13 @@
 name: tinyship-payment
 description: >-
   Set up payment providers for TinyShip: Stripe, PayPal, WeChat Pay, Alipay,
-  Creem, and Dodo Payments. Covers sandbox/test mode, webhook setup, pricing
-  plans (static config or dynamic admin-managed), and credit system. Use when
-  the user asks to "set up stripe", "configure payment", "add wechat pay",
-  "configure alipay", "set up paypal", "payment integration",
-  "configure pricing plans", "add billing", "set up credits",
-  "dynamic pricing", "manage plans in admin", or "change price without
-  redeploying".
+  Creem, Dodo Payments, and Waffo Pancake. Covers sandbox/test mode, webhook
+  setup, pricing plans (static config or dynamic admin-managed), and credit
+  system. Use when the user asks to "set up stripe", "configure payment",
+  "add wechat pay", "configure alipay", "set up paypal", "set up waffo",
+  "payment integration", "configure pricing plans", "add billing",
+  "set up credits", "dynamic pricing", "manage plans in admin",
+  or "change price without redeploying".
 ---
 
 # TinyShip Payment Integration
@@ -26,6 +26,7 @@ Ask the user about their target market to recommend providers:
 | **Global (easy onboard)** | Creem | Full (one-time, recurring, credits) |
 | **Global (alt)** | PayPal | Full (one-time, recurring, credits) |
 | **Global (MoR/tax-free)** | Dodo Payments | Full (Merchant of Record) |
+| **Global (MoR/tax-free)** | Waffo Pancake | Full (Merchant of Record; no CNY for subscriptions) |
 
 ## Setup by Provider
 
@@ -36,8 +37,14 @@ Read the relevant reference file for detailed steps:
 - [references/alipay-setup.md](references/alipay-setup.md) — Alipay
 - [references/paypal-setup.md](references/paypal-setup.md) — PayPal
 
-For Creem and Dodo Payments, read `docs/user-guide/payment/creem.md` and
-`docs/user-guide/payment/dodo.md` from the TinyShip repo.
+For Creem, Dodo Payments, and Waffo Pancake, read `docs/user-guide/payment/creem.md`,
+`docs/user-guide/payment/dodo.md`, and `docs/user-guide/payment/waffo.md` from the
+TinyShip repo.
+
+Waffo specifics to keep in mind: API keys are bound to Test or Production at
+creation time (no `TEST_MODE` switch), webhook verification uses an RSA public
+key (the SDK has Test/Prod keys built in), and each plan needs a `waffoProductId`
+(`PROD_xxx`).
 
 ## Configure Pricing Plans
 
@@ -110,7 +117,7 @@ See `docs/user-guide/payment/dynamic-pricing.md` in the TinyShip repo for full d
 | Type | `duration.type` | Providers |
 |------|----------------|-----------|
 | One-time | `one_time` | All |
-| Subscription | `recurring` | Stripe, Creem, PayPal, Dodo |
+| Subscription | `recurring` | Stripe, Creem, PayPal, Dodo, Waffo |
 | Credit pack | `credits` | All (set `duration.credits: 100`) |
 
 ## Webhook Setup (Local Development)
@@ -142,8 +149,8 @@ credits: {
   fixedChatCost: 10,                   // credits per chat (fixed mode)
   dynamicChatCostPerKiloToken: 1,      // credits per 1K tokens (dynamic mode)
   modelMultipliers: {
-    'qwen-turbo': 1.0,
-    'gpt-4': 2.0,
+    'qwen3.7-flash': 1.0,
+    'gpt-5.6-sol': 2.0,
     'default': 1.0
   }
 }
@@ -178,5 +185,6 @@ credits100: {
 - `libs/payment/AGENTS.md` — payment library architecture
 - `libs/credits/AGENTS.md` — credit system architecture
 - `docs/user-guide/payment/overview.md` — payment documentation index
+- `docs/user-guide/payment/waffo.md` — Waffo Pancake setup (MoR, hosted checkout)
 - `docs/user-guide/payment/dynamic-pricing.md` — dynamic pricing admin guide
 - `docs/user-guide/payment-testing.md` — testing and webhook debug guide
