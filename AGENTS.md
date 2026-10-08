@@ -6,6 +6,7 @@ Agent skills repository for TinyShip SaaS starter kit.
 
 When a user asks for help with their TinyShip project, direct them to the relevant skill:
 
+- **Product recipes**: `skills/tinyship-recipe/SKILL.md` — shape the starter into AI image, AI chat, membership, or waitlist (runs setup first if the project is not initialized)
 - **Setup & Init**: `skills/tinyship-setup/SKILL.md` — first-run wizard, framework selection, unused framework cleanup
 - **Branding**: `skills/tinyship-brand/SKILL.md` — app name, logo, theme, i18n defaults
 - **Auth**: `skills/tinyship-auth/SKILL.md` — OAuth providers, SMS login, WeChat
