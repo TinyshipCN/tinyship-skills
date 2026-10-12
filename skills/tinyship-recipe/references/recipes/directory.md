@@ -54,7 +54,9 @@ export const directoryConfig = {
 };
 ```
 
-Export it from the main config barrel used by the project.
+Wire it into the root `config.ts` as `directory: directoryConfig` (`@config`
+resolves to `config.ts`, so code reads `config.directory`; there is no
+`@config/directory` alias). Also re-export it from `config/index.ts`.
 
 ## Landing
 
@@ -84,8 +86,8 @@ references `user`; `dir_purchase.credit_transaction_id` references
 ### PG schema
 
 Use `timestamp(..., { withTimezone: true })` for time and `jsonb` for JSON.
-Adjust only the import paths for existing `user` and `creditTransaction`
-symbols to match the target repo; keep table names, column names, constraints,
+The imports below match the current starter (`./user`, `./credit-transaction`);
+if a fork moved those symbols, adjust only the import paths and keep table names, column names, constraints,
 and indexes fixed.
 
 ```ts
@@ -100,8 +102,8 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth";
-import { creditTransaction } from "./credits";
+import { user } from "./user";
+import { creditTransaction } from "./credit-transaction";
 
 export const dirCategory = pgTable(
   "dir_category",
@@ -255,8 +257,8 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import { user } from "./auth";
-import { creditTransaction } from "./credits";
+import { user } from "./user";
+import { creditTransaction } from "./credit-transaction";
 
 export const dirCategory = sqliteTable(
   "dir_category",
@@ -402,6 +404,7 @@ The recipe does not ship fixed-number SQL files. Generate migrations inside the
 user project after the schema files are added:
 
 ```bash
+# drizzle.config.ts throws without DATABASE_URL in .env, even for generate
 npx drizzle-kit generate --name recipe_directory_v1
 npx drizzle-kit generate --config=drizzle.config.sqlite.ts --name recipe_directory_v1
 ```
@@ -413,8 +416,19 @@ Rules:
 2. PG migrations live in `libs/database/drizzle`.
 3. SQLite and D1 migrations live in `libs/database/drizzle-sqlite`.
 4. Edit the generated recipe SQL so every `CREATE TABLE` and `CREATE INDEX`
-   uses `IF NOT EXISTS`. The verification script must grep for missing
-   `IF NOT EXISTS`.
+   uses `IF NOT EXISTS`. The PG file also contains `ALTER TABLE ... ADD
+   CONSTRAINT ... FOREIGN KEY` lines, which have no `IF NOT EXISTS`; wrap each
+   one so a re-run is a no-op:
+
+   ```sql
+   DO $$ BEGIN
+    ALTER TABLE "dir_entry" ADD CONSTRAINT "..." FOREIGN KEY (...) ...;
+   EXCEPTION WHEN duplicate_object THEN null;
+   END $$;--> statement-breakpoint
+   ```
+
+   The verification script must fail on any `CREATE TABLE` / `CREATE INDEX`
+   without `IF NOT EXISTS` and on any unwrapped `ADD CONSTRAINT`.
 5. If upstream migration journals conflict later, keep upstream, delete the
    local recipe migration, regenerate with the same name, and re-apply. The SQL
    is idempotent so existing tables and indexes must not fail.
@@ -467,6 +481,13 @@ export async function searchEntries(input: {
 
 Implementation rules:
 
+- Do not use `db.transaction()` in `libs/directory`: D1 rejects it and
+  better-sqlite3 rejects async callbacks. Write sequentially and compensate
+  (see Credits and purchases).
+- Throw an error with `code = "INSUFFICIENT_CREDITS"` when the debit fails for
+  lack of balance; `consumeCredits` returns `success: false` for every error,
+  so check its `error` text instead of treating any failure as low balance.
+
 - `status` values are only `pending`, `approved`, `rejected`.
 - `listing_type` values are only `free`, `paid`.
 - `dir_purchase.kind` values are only `listing`, `featured`.
@@ -509,6 +530,23 @@ Known gap inherited from credits: if a user later refunds a credit package,
 credits may only be clawed back to zero and already-active featured placement is
 not revoked.
 
+### Starter prerequisite: credits on SQLite / D1
+
+As of starter commit `dc1b4f7`, `libs/credits/service.ts` cannot debit credits
+on SQLite or D1, so assertions 5, 6 and 9 fail before any directory code runs:
+
+- `credit_balance` is a TEXT column, and `credit_balance >= ?` compares as text
+  (`'200' >= 70` is false). Fix: `CAST(credit_balance AS REAL) >= ?` in the D1
+  native SQL and in the Drizzle path when the dialect is `sqlite`.
+- Local SQLite: `db.transaction(async ...)` throws "Transaction function cannot
+  return a promise" (better-sqlite3). Fix: for `DB_DIALECT=sqlite`, run the
+  same callback between `sqliteInstance.exec("BEGIN IMMEDIATE")` and
+  `COMMIT` / `ROLLBACK`.
+
+If the starter already has these fixes, skip this. Otherwise apply them as a
+separate starter fix (they are not part of the directory feature), and tell
+the user that the upstream starter needs them.
+
 ## Ads
 
 Ads are manual admin records only. Do not build self-serve ad purchase or
@@ -520,15 +558,28 @@ payment wiring.
 
 ## Verification script
 
-Create `scripts/recipes/directory/verify.ts` and run it with `tsx`. The script
+Create `scripts/recipes/directory/verify.ts` and run it from the repo root with
+`DB_DIALECT=<dialect> npx tsx scripts/recipes/directory/verify.ts`. The script
 must exercise the public `libs/directory` functions above plus direct test setup
-queries where needed.
+queries where needed, print PASS / FAIL per check, and exit non-zero on any
+failure.
+
+- Load `.env` and import `@libs/database` / `@libs/directory` with dynamic
+  `import()` after setting `DB_DIALECT`, because the dialect is fixed at module
+  load.
+- D1 has no Node driver. Get the local binding with
+  `getPlatformProxy({ configPath: "apps/tanstack-app/wrangler.jsonc", persist:
+  { path: "apps/tanstack-app/.wrangler/state/v3" } })` from `wrangler`, and run
+  the whole script inside `withD1(proxy.env.DB, fn)`; dispose the proxy after.
+- SQLite / D1 store timestamps in seconds. In assertion 7, wait at least 1 s
+  between approving E1 and E3 so `published_at` really differs.
+- Use unique ids / slugs per run and clean up, so the script can run twice.
 
 Run three rounds:
 
 | Round | `DB_DIALECT` | Build database with |
 |-------|--------------|---------------------|
-| SQLite | `sqlite` | `pnpm db:push:sqlite` |
+| SQLite | `sqlite` | `mkdir -p data && pnpm db:push:sqlite` (without `data/` drizzle-kit errors but the wrapper still prints success) |
 | PG | `pg` | `pnpm db:push` on a fresh database |
 | D1 | `d1` | `npx wrangler d1 migrations apply tinyship-db --local` from `apps/tanstack-app` |
 
@@ -543,11 +594,14 @@ Script / verification steps:
 5. Grep recipe migration SQL and fail if any `CREATE TABLE` or `CREATE INDEX`
    lacks `IF NOT EXISTS`.
 6. Idempotency:
-   - SQLite: execute the generated recipe SQL again against the already-built
-     database and require success.
+   - SQLite and PG: execute the generated recipe SQL again (split on
+     `--> statement-breakpoint`) against the already-built database and
+     require success. `verify.ts` can do this itself.
    - D1: copy / rename the recipe migration to simulate regeneration after an
      upstream merge, then apply again and require success.
-7. Run `pnpm typecheck`.
+7. Run the selected app's typecheck, for example `pnpm typecheck:tanstack`
+   (`pnpm typecheck` runs every app). App typechecks cover `libs/` and
+   `config/` but not `scripts/`.
 8. Run the selected app build command, for example `pnpm build:tanstack` when
    the user scoped TanStack.
 9. Seed one admin, one normal user, two categories, and three tags.
@@ -560,7 +614,7 @@ Required assertions:
 | 1 | User A submits free E1 | Status is `pending`; search cannot find it |
 | 2 | Admin approves E1 | Status is `approved`; `published_at` is set; keyword, category, and tag searches can find it |
 | 3 | Admin rejects E2 with a reason | Status is `rejected`; `reject_reason` is set; search cannot find it |
-| 4 | A has zero credits and tries to feature E1 | Insufficient balance error; `featured_until` unchanged; no new purchase |
+| 4 | A has zero credits and tries to feature E1 | Error is specifically insufficient balance (not any failure); `featured_until` unchanged; no new purchase |
 | 5 | Add 200 credits to A, then feature E1 for 7 days | Expiry is about now + 7 days; one new purchase; one credit debit; balance is correct |
 | 6 | Feature E1 for another 7 days | Expiry is about now + 14 days, proving stacking |
 | 7 | Create an approved, unfeatured E3 and search | E1 ranks before E3 while E1 is featured |
@@ -570,6 +624,8 @@ Required assertions:
 | 11 | Delete user A | E1 still exists with `submitter_id = NULL`; A's purchases are cascade-deleted |
 
 Passing line: steps 3-10 and all assertions must pass for SQLite, PG, and D1.
+Build the D1 round from a fresh `apps/tanstack-app/.wrangler/state` and copy
+`.dev.vars.example` to `.dev.vars` first.
 
 ## Free implementation area
 

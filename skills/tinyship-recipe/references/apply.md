@@ -162,8 +162,10 @@ implementing the UI.
 4. Generate PG and SQLite / D1 migrations separately. Do not hand-write a fixed
    migration number in the recipe; let Drizzle append the next journal number.
 5. Edit generated recipe SQL so every `CREATE TABLE` and `CREATE INDEX` uses
-   `IF NOT EXISTS`. Keep foreign keys, primary keys, unique constraints, and
-   partial unique indexes intact.
+   `IF NOT EXISTS`. PG output also adds foreign keys with `ALTER TABLE ... ADD
+   CONSTRAINT`; wrap each in `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object
+   THEN null; END $$;`. Keep foreign keys, primary keys, unique constraints,
+   and partial unique indexes intact.
 6. If a future upstream merge conflicts with the generated journal, keep the
    upstream journal, delete the local recipe migration, regenerate it with the
    same recipe name, and re-apply the idempotent SQL.
