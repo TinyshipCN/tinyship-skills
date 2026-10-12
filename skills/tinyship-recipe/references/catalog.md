@@ -11,11 +11,13 @@ First batch is implemented. Later rows are listed so the agent can say
 | `ai-chat` | AI chat / GPT wrapper | Uses `/ai` + credits + plans | No | `/ai` |
 | `membership-content` | Paid membership / posts | Uses `/blog` + `/pricing` + `/premium-features` | No | `/pricing` |
 | `waitlist` | Pre-launch signup | Auth only; hide pay and demos | No | `/signup` |
+| `directory` | Directory / navigation site | New listing schema + credits for paid listing / featured | Yes | `/submit` |
 
 Recipe files: [recipes/ai-image.md](recipes/ai-image.md),
 [recipes/ai-chat.md](recipes/ai-chat.md),
 [recipes/membership-content.md](recipes/membership-content.md),
-[recipes/waitlist.md](recipes/waitlist.md).
+[recipes/waitlist.md](recipes/waitlist.md),
+[recipes/directory.md](recipes/directory.md).
 
 ## Later (do not improvise)
 
@@ -26,7 +28,6 @@ High reuse, write a recipe before applying:
 - `digital-product` — one-time / lifetime unlock
 - `affiliate-content` — blog + affiliate + payment
 - `upload-tool` — `/upload` + storage + credits
-- `directory` — needs listing schema
 - `job-board` — directory variant
 - `link-in-bio` — public profile schema
 - `micro-saas` — one tool page + subscription (user must define the tool)

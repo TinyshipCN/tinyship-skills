@@ -140,5 +140,34 @@ If the recipe rewrites `header.auth.getStarted`, do it in **both** locales.
 
 - Missing image / chat / video keys → `tinyship-ai`
 - User wants Stripe (or another provider) configured now → `tinyship-payment`
-- Recipe needs a new table or page → `tinyship-feature` and both pg + sqlite schemas
+- Recipe needs tables or pages outside a fixed recipe contract →
+  `tinyship-feature` and both pg + sqlite schemas
 - Do not run deploy from this skill
+
+## Table-building recipe rules
+
+Use this section only for recipes whose own recipe file says `New tables: Yes`.
+The recipe file is the source of truth for table names, columns, indexes,
+migration names, and verification. Do not simplify or rename schema while
+implementing the UI.
+
+1. Add schema in both dialect trees: `libs/database/schema/pg/<recipe>.ts` and
+   `libs/database/schema/sqlite/<recipe>.ts`.
+2. Add the proxy file requested by the recipe, usually
+   `libs/database/schema/<recipe>.ts`, and export it from the schema barrel so
+   the existing Drizzle glob sees the new tables.
+3. Generate migrations from the user project after schema is in place. Use the
+   exact migration name from the recipe. For directory v1 this is
+   `recipe_directory_v1`.
+4. Generate PG and SQLite / D1 migrations separately. Do not hand-write a fixed
+   migration number in the recipe; let Drizzle append the next journal number.
+5. Edit generated recipe SQL so every `CREATE TABLE` and `CREATE INDEX` uses
+   `IF NOT EXISTS`. Keep foreign keys, primary keys, unique constraints, and
+   partial unique indexes intact.
+6. If a future upstream merge conflicts with the generated journal, keep the
+   upstream journal, delete the local recipe migration, regenerate it with the
+   same recipe name, and re-apply the idempotent SQL.
+7. For D1, use the SQLite migration directory and verify with Wrangler local
+   migrations, because D1 records migrations by filename.
+8. Run the recipe verification script for every database dialect named by the
+   recipe before calling the work done.
