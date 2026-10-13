@@ -47,8 +47,8 @@ When the locale root becomes the product page:
 
 ## 4. Transactions and credits
 
-- Starter must have the credits fix (`runSqliteTransaction` exported; branch
-  `fix/credits-sqlite-d1` until merged). Missing → stop, tell the user.
+- Starter must have the credits fix (`runSqliteTransaction` exported; tinyship
+  main commit `66ab098`, PR #37). Missing → stop, tell the user.
 - Multi-statement writes only via `@libs/database` helpers: PG
   `runTransaction(async tx => …)`; SQLite `runSqliteTransaction(tx => …)`
   (sync, `.run()/.get()/.all()`, no `await`); D1 `runD1Batch` /
