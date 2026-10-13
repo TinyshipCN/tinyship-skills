@@ -130,6 +130,11 @@ async function main() {
   const dbm = await import("@libs/database");
   const dir = await import("@libs/directory");
   const { creditService } = await import("@libs/credits");
+  const { config } = await import("@config");
+  const P = config.directory.pricing;
+  const F7 = P.featured.find((f: { days: number }) => f.days === 7)!.credits;
+  const LIST = P.listingCredits;
+  const START = F7 * 2 + LIST + 10; // enough for two 7-day features + one paid listing
   const { db, user, dirCategory, dirTag, dirEntry, dirEntryTag, dirPurchase, dirAd, creditTransaction } = dbm;
   const { eq, and, inArray } = await import("drizzle-orm");
   const d = db as any;
@@ -197,7 +202,7 @@ async function main() {
     check("4 no debit ledger row", (await debitsOf()).length === 0);
 
     // 5
-    await creditService.addCredits({ userId: ua, amount: 200, type: "adjustment", description: "verify" });
+    await creditService.addCredits({ userId: ua, amount: START, type: "adjustment", description: "verify" });
     const f1 = await dir.purchaseFeatured({ entryId: e1.entryId, userId: ua, days: 7 });
     check("5 expiry ~ now+7d", near(f1.featuredUntil, Date.now() + 7 * DAY), f1.featuredUntil);
     const p5 = await purchasesOf(e1.entryId);
@@ -205,12 +210,12 @@ async function main() {
     check("5 one active purchase", p5.length === 1 && p5[0].status === "active", p5.map((p: any) => p.status));
     check("5 purchase linked to debit", debits5.length === 1 && p5[0].creditTransactionId === debits5[0].id);
     check("5 no pending purchase", !p5.some((p: any) => p.status === "pending"));
-    check("5 balance 200-70=130", (await creditService.getBalance(ua)) === 130, await creditService.getBalance(ua));
+    check("5 balance START-F7", (await creditService.getBalance(ua)) === START - F7, await creditService.getBalance(ua));
 
     // 6
     const f2 = await dir.purchaseFeatured({ entryId: e1.entryId, userId: ua, days: 7 });
     check("6 stacking ~ now+14d", near(f2.featuredUntil, Date.now() + 14 * DAY), f2.featuredUntil);
-    check("6 balance 60", (await creditService.getBalance(ua)) === 60);
+    check("6 balance START-2*F7", (await creditService.getBalance(ua)) === START - 2 * F7);
 
     // 7
     await sleep(1100);
@@ -230,7 +235,7 @@ async function main() {
     const e4 = await dir.submitEntry({ userId: ua, name: `E4 ${kw}`, url: "https://e4.example.com", paid: true });
     entryIds.push(e4.entryId);
     const mid9 = await creditService.getBalance(ua);
-    check("9 paid listing debits 50", before9 - mid9 === 50, { before9, mid9 });
+    check("9 paid listing debits listingCredits", before9 - mid9 === LIST, { before9, mid9 });
     const p9a = await purchasesOf(e4.entryId);
     check("9 listing purchase active", p9a.length === 1 && p9a[0].status === "active" && p9a[0].kind === "listing");
     check("9 entry listing_type paid", (await getEntry(e4.entryId)).listingType === "paid");

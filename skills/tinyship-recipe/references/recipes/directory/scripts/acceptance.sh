@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
 # One acceptance round on a CLEAN clone of the user's project (committed work).
-# usage: acceptance.sh <sqlite|pg|d1> <project-git-dir> <branch> [pg-url-for-fresh-db] [apps...]
-#   apps default: next   (any of next nuxt tanstack; D1 round builds only tanstack)
+# Needs: git, bash, openssl, Node 22 + pnpm on PATH; PG round: a reachable server.
+# usage: DIALECT=<sqlite|pg|d1> SRC=<project git dir> BRANCH=<branch> \
+#        [PGURL=postgresql://u:p@host:5432/db] [APPS="next nuxt tanstack"] acceptance.sh
+#   APPS default "next". D1 round builds only tanstack. PG round needs PGURL to
+#   point at an EMPTY database (the round fails otherwise; drop/create it first).
 # Prints "RESULT <round> | <step> | PASS|FAIL"; exits non-zero on any FAIL.
 set -uo pipefail
-R=$1 SRC=$2 BR=$3 PGURL=${4:-postgresql://postgres:postgres@localhost:5432/recipe_round}; shift 3; [ $# -gt 0 ] && shift
-APPS=${*:-next}
+R=${DIALECT:?DIALECT=sqlite|pg|d1} SRC=${SRC:?SRC=project git dir} BR=${BRANCH:?BRANCH=branch}
+PGURL=${PGURL:-postgresql://postgres:postgres@localhost:5432/recipe_round}
+APPS=${APPS:-next}
 HERE=$(cd "$(dirname "$0")" && pwd)
 W=$(mktemp -d)/round-$R; LOG=$W.logs; mkdir -p "$LOG"; FAILS=0
-git clone -q "$SRC" "$W" && cd "$W" && git checkout -q "$BR" || exit 1
 res(){ echo "RESULT $R | $1 | $2"; [ "$2" = FAIL ] && FAILS=$((FAILS+1)); }
+if ! { git clone -q "$SRC" "$W" && cd "$W" && git checkout -q "$BR"; }; then res clone FAIL; exit 1; fi
 step(){ local n="$1"; shift; if "$@" >"$LOG/$(echo "$n" | tr -c 'a-zA-Z0-9' _).log" 2>&1; then res "$n" PASS; else res "$n" FAIL; fi; }
 sed -e "s|__PORT__|7001|g" -e "s|__SECRET__|$(openssl rand -hex 32)|" -e "s|__DIALECT__|$R|" -e "s|__DATABASE_URL__|$PGURL|" \
   "$HERE/round.env.template" > .env
 step "pnpm install" pnpm install --frozen-lockfile
 case $R in
   sqlite) step "build db" bash -c 'mkdir -p data && pnpm db:push:sqlite && test -s data/local.sqlite' ;;
-  pg)     step "build db (db:push, fresh DB expected)" pnpm db:push ;;
+  pg)     step "pg database is empty" node -e 'const {Client}=require("pg");(async()=>{const c=new Client({connectionString:process.argv[1]});await c.connect();const r=await c.query("select count(*)::int n from information_schema.tables where table_schema=\x27public\x27");await c.end();if(r.rows[0].n)throw new Error("not empty: "+r.rows[0].n+" tables")})().catch(e=>{console.error(e.message);process.exit(1)})' "$PGURL"
+          step "build db (db:push)" pnpm db:push ;;
   d1)     step "build db" bash -c 'cd apps/tanstack-app && rm -rf .wrangler/state && cp .dev.vars.example .dev.vars && npx wrangler d1 migrations apply tinyship-db --local' ;;
 esac
 # the db scripts wrapper prints success even on failure: check the output text

@@ -29,7 +29,10 @@ export const directoryConfig = {
 ## Schema (fixed)
 
 Exactly 6 tables; copy verbatim into `libs/database/schema/{pg,sqlite}/directory.ts`
-plus the dialect proxy and exports (follow `credit-transaction`). Migration name
+plus the dialect proxy (follow `credit-transaction`). The 6 tables
+(`dirCategory`, `dirTag`, `dirEntry`, `dirEntryTag`, `dirPurchase`, `dirAd`)
+**must be named exports of `libs/database/index.ts`** — the shipped scripts
+import them from `@libs/database` (adding them to `_schema` is optional). Migration name
 `recipe_directory_v1` (baseline §3). D1 uses the SQLite schema.
 
 ### PG schema
@@ -153,7 +156,7 @@ export const dirPurchase = pgTable(
       () => creditTransaction.id,
       { onDelete: "set null" },
     ),
-    status: text("status").notNull().default("active"),
+    status: text("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
   (table) => ({
@@ -310,7 +313,7 @@ export const dirPurchase = sqliteTable(
       () => creditTransaction.id,
       { onDelete: "set null" },
     ),
-    status: text("status").notNull().default("active"),
+    status: text("status").notNull().default("pending"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => ({
