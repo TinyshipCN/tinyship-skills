@@ -514,9 +514,11 @@ crash at any point leaves a row that can be reconciled:
    listing, insert the `dir_entry` (`listing_type = "paid"`,
    `status = "pending"`) first; if the purchase insert fails, delete it.
 2. **Debit.** Call the existing `creditService.consumeCredits` with
-   `metadata: { dirPurchaseId }`. If it fails, delete the pending purchase (and
-   the paid-listing entry) and throw; on insufficient balance throw
-   `code = "INSUFFICIENT_CREDITS"`.
+   `metadata: { dirPurchaseId }`. Only when it returns
+   `error === "Insufficient credits"` (nothing was debited) delete the pending
+   purchase (and the paid-listing entry) and throw
+   `code = "INSUFFICIENT_CREDITS"`. Any other error may have debited already:
+   keep the pending row for reconciliation and rethrow.
 3. **Complete.** In one atomic write, set the purchase `status = "active"` and
    `credit_transaction_id` to the returned id, plus the entry change (featured:
    new `featured_until`). PG: `runTransaction`; SQLite:
@@ -524,14 +526,21 @@ crash at any point leaves a row that can be reconciled:
    refund with `addCredits({ type: "refund" })` and delete the pending rows.
 
 Featured: only `approved` entries; new expiry is `max(now, featured_until) +
-days`, so repeated purchases stack.
+days`, so repeated purchases stack. Compute it in SQL inside the step-3 UPDATE,
+never read-then-write (a concurrent purchase would be lost), e.g.
+PG `GREATEST(now(), COALESCE(featured_until, now())) + make_interval(days => ?)`,
+SQLite / D1 (seconds) `max(CAST(strftime('%s','now') AS INTEGER),
+COALESCE(featured_until, 0)) + ? * 86400`. A plain UPDATE works inside a D1
+batch; read the new value back afterwards for the return value.
 
 Paid listing rejected by admin: always `addCredits({ type: "refund" })` and mark
 that purchase `refunded`.
 
 Reconciliation: a `pending` purchase older than a few minutes means the process
-died between steps. If a `consumption` ledger row has
-`metadata.dirPurchaseId` = that id, finish step 3 with it; otherwise delete the
+died between steps (or step 2 failed with a non-balance error). Look up the
+`consumption` ledger row by `metadata.dirPurchaseId` (SQLite / D1:
+`json_extract(metadata, '$.dirPurchaseId') = ?`; PG:
+`metadata->>'dirPurchaseId' = ?`). If it exists, finish step 3 with it; otherwise delete the
 pending row. A one-off admin script is enough; do not build a job for it. The
 partial unique index on `credit_transaction_id` prevents recording the same
 debit twice.
