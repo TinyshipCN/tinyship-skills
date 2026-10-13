@@ -132,7 +132,7 @@ async function main() {
   const { creditService } = await import("@libs/credits");
   const { config } = await import("@config");
   const P = config.directory.pricing;
-  const F7 = P.featured.find((f: { days: number }) => f.days === 7)!.credits;
+  const F7 = (P.featured.find((f: { days: number }) => f.days === 7) ?? P.featured[0]).credits;
   const LIST = P.listingCredits;
   const START = F7 * 2 + LIST + 10; // enough for two 7-day features + one paid listing
   const { db, user, dirCategory, dirTag, dirEntry, dirEntryTag, dirPurchase, dirAd, creditTransaction } = dbm;

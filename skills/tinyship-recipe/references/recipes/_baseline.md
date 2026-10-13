@@ -76,7 +76,7 @@ Done only when all hold:
    The D1 round runs only DB + `verify.ts` unless TanStack is targeted.
 2. Migrations-only (SQLite via `verify.ts --migrations-only`, PG via
    `pg-migrations-only.sh`) matches the recipe snapshot.
-3. With the recipe demo seed: every page returns 200 at `/…` and `/en/…`
+3. With the recipe demo seed: every page returns 200: home at `/` and `/en`, subpages at `/zh-CN/…` and `/en/…`
    (admin signed in as admin); signed out, submit shows a sign-in prompt and
    admin redirects; the recipe's content check holds.
 4. No hard-coded colors in new page files; no literal UI strings.
