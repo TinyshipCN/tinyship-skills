@@ -48,24 +48,34 @@ baseline wins unless the recipe names the exception explicitly.
 ## 2b. Header and footer navigation
 
 When a complex recipe **replaces the marketing home** (locale root becomes a
-product page), also rewrite the starter Header and Footer chrome. Keep the
-existing Header / Footer components and theme; only change links and labels.
+product page), skip `apply.md` Landing contract and rewrite the starter Header
+and Footer chrome instead. Keep the existing components and theme; only change
+links and labels. Files (only the targeted apps):
 
-1. **Home / logo** points at the new product home (locale root), never at a
-   leftover marketing landing.
-2. **Promote** the recipe primary action to a top-level header link (and the
-   same link in the footer when it fits).
-3. **Hide** starter marketing / demo links that conflict with the product
-   (desktop **and** mobile menus, plus the matching footer links). Follow
-   `apply.md` Hide vs delete: hide links, do not delete starter route files.
-   If the Demos dropdown would keep 0–1 items, hide the whole dropdown.
-4. If every footer link is hidden, omit the `<nav>` element.
-5. All new / changed labels go through i18n for every starter locale
-   (`apply.md` Copy). Admin sidebar entry is already covered by §1.
-6. The recipe file lists the exact keep / hide / promote set for that product.
+| | Next | Nuxt | TanStack |
+|---|---|---|---|
+| Header | `apps/next-app/components/global-header.tsx` | `apps/nuxt-app/components/GlobalHeader.vue` | `apps/tanstack-app/src/components/global-header.tsx` |
+| Footer | `apps/next-app/components/site-footer.tsx` | `apps/nuxt-app/components/SiteFooter.vue` | `apps/tanstack-app/src/components/site-footer.tsx` |
 
-Recipes that only add a sub-product and keep the marketing home leave the
-header / footer alone unless they say otherwise.
+1. **Locale links**: the default locale (`config.app.i18n.defaultLocale`,
+   zh-CN in the starter) is served at `/`; other locales at `/en/...`
+   (`apply.md` Apps and files). Build links with the app's existing pattern
+   (Next / TanStack: home = `locale === config.app.i18n.defaultLocale ? "/" :
+   `/${locale}``, subpages `/${locale}/...` as the existing header does; Nuxt:
+   its i18n `localePath`). Never hard-code `'zh-CN'` in new code.
+2. **Home / logo** points at the new product home (locale root).
+3. **Promote** the recipe primary action to a top-level header link, and the
+   same link in the footer.
+4. **Hide** conflicting marketing / demo links in desktop **and** mobile menus
+   and the footer (`apply.md` Hide vs delete: hide links, keep route files).
+   If the Demos dropdown would keep 0–1 items, hide it. Hidden pages such as
+   Blog stay routable and remain the visual reference in §5.5.
+5. If every footer link is hidden, omit the `<nav>` element.
+6. New / changed labels go through i18n for every starter locale.
+7. The recipe file lists the exact keep / hide / promote set.
+
+Recipes that keep the marketing home leave header / footer alone unless they
+say otherwise.
 
 ## 3. Database
 
@@ -159,7 +169,8 @@ failure) and its assertions.
    without SQL, build the base with `db:push` of the pre-recipe schema, then
    apply only the recipe file.
 3. Pages: with demo data seeded, every recipe page returns HTTP 200 in each
-   targeted app (admin: 200 signed in as admin, signed-out may redirect);
+   targeted app, for both the default locale (`/`, `/<path>`) and `/en`
+   (`/en`, `/en/<path>`) per `apply.md` Apps and files (admin: 200 signed in as admin, signed-out may redirect);
    pages that need login (submit) redirect to sign-in or show a sign-in
    prompt when signed out; plus the recipe's own content checks.
 4. Hard-coded color grep over the new page files fails on any Tailwind

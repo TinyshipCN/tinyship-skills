@@ -25,6 +25,13 @@ Default public locale is Chinese at `/`; `/zh-CN` redirects. Verify `/` and `/en
 
 ## Landing contract (once per home file)
 
+Skip this whole section when the recipe **replaces the home page**
+(`recipes/_baseline.md` §2b, e.g. `directory`): the home file becomes the
+product page, so the CTA / tech-stack / card-count rules below do not apply
+and `home.*` marketing copy need not be rewritten (keep `home.footer`). For
+complex recipes the baseline takes precedence over this file wherever they
+differ.
+
 1. **Primary CTA href** is hardcoded to `/pricing` today (hero + final CTA).
    Change both to the recipe target (`/image-generate`, `/ai`, `/pricing`, `/signup`).
    Keep the secondary button on `#features` unless the recipe says otherwise.

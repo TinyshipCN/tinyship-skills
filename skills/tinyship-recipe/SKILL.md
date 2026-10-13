@@ -78,10 +78,10 @@ CTA / example copy sections.
 
 Order:
 
-1. Landing contract (CTA hrefs + hide empty tech stack) — once per app
+1. Landing contract (CTA hrefs + hide empty tech stack) — once per app; **skip** if the recipe replaces the home page (baseline §2b)
 2. Hide unused header **and footer** links (desktop **and** mobile). Do not delete route files
 3. Promote the product link to top-level nav when the recipe says so
-4. Rewrite `home.*` (and `home.footer`) in `libs/i18n/locales/en.ts` **and** `zh-CN.ts`
+4. Rewrite `home.*` (and `home.footer`) in `libs/i18n/locales/en.ts` **and** `zh-CN.ts`; if the recipe replaces the home page, only `home.footer` and the recipe's own keys
 5. Rewrite auth chrome (`common.siteName`, `auth.metadata.signin` / `signup`, `auth.signup.title`) so those pages do not say TinyShip. Fill zh-CN `{pitch}` from `{pitch-zh}`. Do **not** edit `config.app.name` or logo files
 6. Hand off to `tinyship-ai` / `tinyship-payment` / `tinyship-feature` only if the recipe says so
 

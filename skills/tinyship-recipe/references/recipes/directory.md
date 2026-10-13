@@ -30,7 +30,7 @@ submit entries; admins approve, reject, and manually manage ads.
 |--------|---------|
 | Replace home | Locale root becomes the directory list (see Pages). Relocate or drop the marketing landing sections from that file; do not leave a second competing home. |
 | Keep routes | auth, dashboard, admin, pricing (credits), and all starter demo route **files** (hidden, not deleted) |
-| Hide from header / footer | Demos dropdown (`/ai`, `/image-generate`, `/video-generate`, `/premium-features`, `/upload`) and Blog |
+| Hide from header / footer | Demos dropdown (`/ai`, `/image-generate`, `/video-generate`, `/premium-features`, `/upload`) and Blog (nav only; `/blog` stays routable as the §5.5 visual reference) |
 | Promote | Logo / Home → locale root (the list). Top-level **Submit** → `/submit`. |
 | Keep in header / footer | Pricing (`/pricing`) so users can buy credits |
 | Admin sidebar | Directory admin page (baseline §1) |
@@ -485,7 +485,8 @@ row and `metadata: { dirPurchaseId }`:
   SQLite / D1 (seconds) `max(CAST(strftime('%s','now') AS INTEGER),
   COALESCE(featured_until, 0)) + ? * 86400`; read it back for the return value.
 - Step-3 failure: baseline rule (mark `refunded`, then refund); for a paid
-  listing then also delete the pending entry.
+  listing then set the entry `status = "rejected"` (do not delete it: that
+  would cascade-delete the refunded purchase).
 - The partial unique index on `credit_transaction_id` prevents recording one
   debit twice.
 
@@ -550,8 +551,11 @@ UI per baseline §2: featured = `Badge` default, status pending / rejected =
 `secondary` / `destructive`, tags = `outline`, logos via `Avatar` fallback).
 Header / footer: baseline §2b + Keep / hide / promote above.
 
-Public routes use **short paths at the locale root** (preferred). Do not nest
-the list under `/directory`.
+Public routes use **short paths at the locale root**; do not nest the list
+under `/directory`. "Path" is relative to the locale root: the default locale
+serves `/`, `/c/:slug`, ... (the starter also accepts `/zh-CN/...` for
+subpages), other locales `/en`, `/en/c/:slug`, ... Build links per baseline
+§2b.
 
 | Page | Path (after locale) | Next (`apps/next-app/app/[lang]/...`) | Nuxt (`apps/nuxt-app/pages/...`) | TanStack (`apps/tanstack-app/src/routes/$lang/...`) |
 |------|---------------------|------|------|------|
@@ -562,8 +566,8 @@ the list under `/directory`.
 | Admin: entry review + manual ads | `/admin/directory` | `admin/directory/page.tsx` | `admin/directory/index.vue` (`layout: "admin"`) | `admin/directory.tsx` |
 
 Shared UI for the public pages may live next to them (e.g. Next
-`(root)/_directory-ui.tsx`). Links inside pages must use these short paths
-(`/`, `/c/...`, `/e/...`, `/submit`), not `/directory/...`.
+`(root)/_directory-ui.tsx`). Links use these short paths, never
+`/directory/...`.
 
 ## Free implementation area
 
