@@ -6,10 +6,6 @@ transactions / credits, acceptance). This file lists only directory specifics.
 Directory / navigation site. Visitors browse approved entries; signed-in users
 submit entries; admins approve, reject, and manually manage ads.
 
-This recipe is intentionally small. It fixes only the data contract, migration
-rules, domain function signatures, and verification script. Pages, route shapes,
-admin UI, copy, and business wiring are left to the applying agent.
-
 ## Defaults
 
 | Slot | Default |
@@ -32,12 +28,13 @@ admin UI, copy, and business wiring are left to the applying agent.
 
 | Action | Targets |
 |--------|---------|
-| Keep routes | directory home, submit entry, entry detail, category / tag / search pages, auth, dashboard, admin |
-| Hide from header | Demos dropdown (`/ai`, `/image-generate`, `/video-generate`, `/premium-features`, `/upload`) |
-| Promote | Top-level nav link to the directory home, plus a submit CTA when the chosen app has room |
-| Keep in header | Pricing only if the site sells credit packages publicly |
-| Footer | Same as header; do not keep hidden demo links |
-| Do not delete | Any route files from the starter |
+| Replace home | Locale root becomes the directory list (see Pages). Relocate or drop the marketing landing sections from that file; do not leave a second competing home. |
+| Keep routes | auth, dashboard, admin, pricing (credits), and all starter demo route **files** (hidden, not deleted) |
+| Hide from header / footer | Demos dropdown (`/ai`, `/image-generate`, `/video-generate`, `/premium-features`, `/upload`) and Blog |
+| Promote | Logo / Home → locale root (the list). Top-level **Submit** → `/submit`. |
+| Keep in header / footer | Pricing (`/pricing`) so users can buy credits |
+| Admin sidebar | Directory admin page (baseline §1) |
+| Do not delete | Any starter route files (apply.md Hide vs delete) |
 
 Use `config/directory.ts` for directory-specific settings:
 
@@ -61,12 +58,18 @@ Wire it into the root `config.ts` as `directory: directoryConfig` (`@config`
 resolves to `config.ts`, so code reads `config.directory`; there is no
 `@config/directory` alias). Also re-export it from `config/index.ts`.
 
-## Landing
+## Landing (home = directory list)
 
-- Primary CTA -> the submit page, normally `/submit`.
-- Secondary -> directory browse / search, normally `/directory` or `#features`.
-- `techStack.items` = `[]` and do not render the chip row.
-- Do not invent extra product features while applying the recipe.
+The directory **is** the home page. Do not keep the marketing landing at the
+locale root and put the list under `/directory`.
+
+- Replace `(root)/page.tsx` (and Nuxt / TanStack home equivalents) with the
+  directory list. The old hero / features / tech-stack / final-CTA blocks go
+  away from that file (or move to a non-linked route if you need them later).
+- Logo and "Home" always go to locale root.
+- Primary public CTA in the header / footer: Submit → `/submit`.
+- `apply.md` Landing contract (keep 8 feature cards, CTA → `/pricing`, etc.)
+  does **not** apply; this recipe overrides it.
 
 ## Database contract
 
@@ -536,7 +539,7 @@ required assertions:
 | 11 | Delete user A | E1 still exists with `submitter_id = NULL`; A's purchases are cascade-deleted |
 
 Passing line: all baseline §5 steps and all assertions for SQLite, PG and D1.
-Directory page content check (baseline §5.3): home HTML contains the featured
+Directory page content check (baseline §5.3): locale-root home HTML contains the featured
 entry with its featured badge and the active `home_top` ad title, not the
 expired ad. Screenshots: directory home and admin pages (baseline §5.5).
 
@@ -545,14 +548,22 @@ expired ad. Screenshots: directory home and admin pages (baseline §5.5).
 Every targeted app ships these 5 pages + an admin sidebar entry (baseline §1,
 UI per baseline §2: featured = `Badge` default, status pending / rejected =
 `secondary` / `destructive`, tags = `outline`, logos via `Avatar` fallback).
+Header / footer: baseline §2b + Keep / hide / promote above.
 
-| Page | Next (`apps/next-app/app/[lang]/...`) | Nuxt (`apps/nuxt-app/pages/...`, locale via i18n module) | TanStack (`apps/tanstack-app/src/routes/$lang/...`) |
-|------|------|------|------|
-| Home / list (search, featured first, active `home_top` ad, category nav) | `(root)/directory/page.tsx` | `directory/index.vue` | `(root)/directory/index.tsx` |
-| Category | `(root)/directory/c/[slug]/page.tsx` | `directory/c/[slug].vue` | `(root)/directory/c/$slug.tsx` |
-| Entry detail | `(root)/directory/e/[slug]/page.tsx` | `directory/e/[slug].vue` | `(root)/directory/e/$slug.tsx` |
-| Submit (login required; paid toggle) | `(root)/directory/submit/page.tsx` | `directory/submit.vue` | `(root)/directory/submit.tsx` |
-| Admin: entry review + manual ads | `admin/directory/page.tsx` | `admin/directory/index.vue` (`definePageMeta({ layout: "admin" })`) | `admin/directory.tsx` |
+Public routes use **short paths at the locale root** (preferred). Do not nest
+the list under `/directory`.
+
+| Page | Path (after locale) | Next (`apps/next-app/app/[lang]/...`) | Nuxt (`apps/nuxt-app/pages/...`) | TanStack (`apps/tanstack-app/src/routes/$lang/...`) |
+|------|---------------------|------|------|------|
+| Home / list (search, featured first, active `home_top` ad, category nav) | `/` | `(root)/page.tsx` | `index.vue` | `(root)/index.tsx` |
+| Category | `/c/:slug` | `(root)/c/[slug]/page.tsx` | `c/[slug].vue` | `(root)/c/$slug.tsx` |
+| Entry detail | `/e/:slug` | `(root)/e/[slug]/page.tsx` | `e/[slug].vue` | `(root)/e/$slug.tsx` |
+| Submit (login required; paid toggle) | `/submit` | `(root)/submit/page.tsx` | `submit.vue` | `(root)/submit.tsx` |
+| Admin: entry review + manual ads | `/admin/directory` | `admin/directory/page.tsx` | `admin/directory/index.vue` (`layout: "admin"`) | `admin/directory.tsx` |
+
+Shared UI for the public pages may live next to them (e.g. Next
+`(root)/_directory-ui.tsx`). Links inside pages must use these short paths
+(`/`, `/c/...`, `/e/...`, `/submit`), not `/directory/...`.
 
 ## Free implementation area
 
@@ -571,7 +582,8 @@ custom-field filtering.
 
 ## Apply order
 
-1. Slots -> 2. Landing contract -> 3. Header **and footer** hide/promote ->
+1. Slots -> 2. Replace locale-root home with the directory list (Landing) ->
+3. Header **and footer** keep / hide / promote (baseline §2b) ->
 4. `config/directory.ts` -> 5. database schema + barrel exports ->
 6. migrations named `recipe_directory_v1` and made idempotent ->
 7. `libs/directory/index.ts` public contract -> 8. the 5 pages + admin sidebar
