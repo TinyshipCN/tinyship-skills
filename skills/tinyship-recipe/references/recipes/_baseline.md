@@ -13,7 +13,8 @@ stated here or in the recipe is the agent's call, judged by §5.
   (`libs/react-shared/ui/*`, Nuxt `components/ui/*`), theme tokens only (no
   palette classes, `text-white`, hex, `rgb()`), image fallbacks via `Avatar`.
 - All copy in every `libs/i18n/locales/*` pack, including enum labels
-  (statuses, kinds) and empty / error states.
+  (statuses, kinds) and empty / error states. Symbols and placeholders
+  (`←`, `-`, `https://`) are not copy.
 - **Admin writes check admin themselves.** Middleware only guards admin
   *pages*; every server action / API route that writes must verify
   `session.user.role === admin`. Public writes (submit) require a session.

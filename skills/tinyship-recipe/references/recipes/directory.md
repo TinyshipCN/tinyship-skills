@@ -400,11 +400,13 @@ Nuxt / TanStack: same paths under their route roots. Badges: featured
 | Script | Use |
 |--------|-----|
 | `verify.ts` | 11 library assertions (submit / review / insufficient / featured + stacking / ranking / paid refund / ads / user delete) + idempotent-DDL check; `--migrations-only` for SQLite |
-| `seed-demo.ts` | demo data for page checks (featured ChatPilot, pending FormDrop, active + expired ad) |
+| `seed-demo.ts` | run after the starter `pnpm db:seed` / `db:seed:sqlite` (needs its admin + user); demo data for page checks (featured ChatPilot, pending FormDrop, active + expired ad) |
 | `acceptance.sh` | one full round per dialect on a clean clone |
 | `pg-migrations-only.sh` | PG migrations-only on an empty DB |
 | `d1-reapply.sh` | re-run the recipe SQL on local D1 |
 | `round.env.template` | minimal `.env` per round |
+
+PG scripts need a user-supplied URL of an **empty** database (`PGURL` / first argument).
 
 Page content check: with demo data, `/` and `/en` show ChatPilot with the
 featured badge and the active ad title, not the expired ad or FormDrop.

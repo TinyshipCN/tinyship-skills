@@ -47,7 +47,7 @@ Paywalled individual posts (needs post-level access), comments, email newsletter
 
 ## Apply order
 
-1. Slots → 2. Landing contract (secondary → `/blog`) → 3. Header **and footer** hide/promote → 4. i18n packs (see paste shape) → 5. Auth chrome (`common.siteName`, `auth.metadata.signin` / `signup`) → 6. Offer `tinyship-payment` → 7. Verify `/`, `/en`, `/blog`, `/pricing`, `/premium-features`, `/signin` title
+Follow `SKILL.md` Step 4 / Step 5. Recipe specifics: Landing secondary → `/blog`; offer `tinyship-payment`; Step 5 also checks `/blog`, `/pricing`, `/premium-features`.
 
 ## Example copy — `en.ts` `home`
 
