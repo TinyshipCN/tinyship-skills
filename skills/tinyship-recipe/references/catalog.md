@@ -19,6 +19,10 @@ Recipe files: [recipes/ai-image.md](recipes/ai-image.md),
 [recipes/waitlist.md](recipes/waitlist.md),
 [recipes/directory.md](recipes/directory.md).
 
+Complex recipes (`New tables: Yes`, or adding pages) must also follow
+[recipes/_baseline.md](recipes/_baseline.md). New complex recipes reference it
+instead of repeating it.
+
 ## Later (do not improvise)
 
 High reuse, write a recipe before applying:

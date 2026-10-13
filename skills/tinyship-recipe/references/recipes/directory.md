@@ -1,5 +1,8 @@
 # Recipe: directory
 
+Complex recipe: follow [_baseline.md](_baseline.md) (page scope, UI, database,
+transactions / credits, acceptance). This file lists only directory specifics.
+
 Directory / navigation site. Visitors browse approved entries; signed-in users
 submit entries; admins approve, reject, and manually manage ads.
 
@@ -399,44 +402,10 @@ export const dirAd = sqliteTable(
 
 ## Migration rules
 
-The recipe does not ship fixed-number SQL files. Generate migrations inside the
-user project after the schema files are added:
-
-```bash
-# drizzle.config.ts throws without DATABASE_URL in .env, even for generate
-npx drizzle-kit generate --name recipe_directory_v1
-npx drizzle-kit generate --config=drizzle.config.sqlite.ts --name recipe_directory_v1
-```
-
-Rules:
-
-1. Generated filenames must end in `recipe_directory_v1.sql`; the `00NN_`
-   number is whatever comes next in the local journal.
-2. PG migrations live in `libs/database/drizzle`.
-3. SQLite and D1 migrations live in `libs/database/drizzle-sqlite`.
-4. Edit the generated recipe SQL so every `CREATE TABLE` and `CREATE INDEX`
-   uses `IF NOT EXISTS`. The PG file also contains `ALTER TABLE ... ADD
-   CONSTRAINT ... FOREIGN KEY` lines, which have no `IF NOT EXISTS`; wrap each
-   one so a re-run is a no-op:
-
-   ```sql
-   DO $$ BEGIN
-    ALTER TABLE "dir_entry" ADD CONSTRAINT "..." FOREIGN KEY (...) ...;
-   EXCEPTION WHEN duplicate_object THEN null;
-   END $$;--> statement-breakpoint
-   ```
-
-   The verification script must fail on any `CREATE TABLE` / `CREATE INDEX`
-   without `IF NOT EXISTS` and on any unwrapped `ADD CONSTRAINT`.
-5. If upstream migration journals conflict later, keep upstream, delete the
-   local recipe migration, regenerate with the same name, and re-apply. The SQL
-   is idempotent so existing tables and indexes must not fail.
-6. Projects that only use `db:push` are unaffected by migration journals.
-7. Future table changes use a new migration name such as `recipe_directory_v2`
-   and write only `ALTER` statements. Do not mutate v1.
-8. For a fresh PG verification database, use `pnpm db:push`, not `db:migrate`,
-   because the referenced template state has a PG journal entry without a
-   matching historical SQL file.
+Follow baseline §3 with migration name `recipe_directory_v1` (PG and SQLite /
+D1). `verify.ts` must fail on any `CREATE TABLE` / `CREATE INDEX` without
+`IF NOT EXISTS` and on any unwrapped `ADD CONSTRAINT`. Future changes:
+`recipe_directory_v2`.
 
 ## Directory library contract
 
@@ -480,12 +449,7 @@ export async function searchEntries(input: {
 
 Implementation rules:
 
-- Do not call `db.transaction()` directly in `libs/directory`: D1 rejects it
-  and better-sqlite3 rejects async callbacks. For a multi-statement write use
-  the starter helpers per dialect: `runTransaction` (PG, async callback),
-  `runSqliteTransaction` (SQLite, synchronous callback with `.run()` /
-  `.get()` / `.all()`, no `await`), and `runD1Batch` (D1). See Credits and
-  purchases.
+- Multi-statement writes: baseline §4 helpers only.
 - Throw an error with `code = "INSUFFICIENT_CREDITS"` when the debit fails for
   lack of balance; `consumeCredits` returns `success: false` for every error,
   so check its `error` text instead of treating any failure as low balance.
@@ -503,81 +467,27 @@ Implementation rules:
 
 ## Credits and purchases
 
-Use only credits. Do not add direct item checkout and do not touch payment
-fulfillment code.
+Credits only (baseline §4); no direct item checkout. Both purchases use the
+baseline pending → consume → complete flow with `dir_purchase` as the purchase
+row and `metadata: { dirPurchaseId }`:
 
-Every purchase (paid listing or featured) follows the same three steps, so a
-crash at any point leaves a row that can be reconciled:
-
-1. **Pending.** Insert one `dir_purchase` with `status = "pending"`, the
-   `kind`, `credits` and `days`, and `credit_transaction_id = NULL`. For a paid
-   listing, insert the `dir_entry` (`listing_type = "paid"`,
-   `status = "pending"`) first; if the purchase insert fails, delete it.
-2. **Debit.** Call the existing `creditService.consumeCredits` with
-   `metadata: { dirPurchaseId }`. Only when it returns
-   `error === "Insufficient credits"` (nothing was debited) delete the pending
-   purchase (and the paid-listing entry) and throw
-   `code = "INSUFFICIENT_CREDITS"`. Any other error may have debited already:
-   keep the pending row for reconciliation and rethrow.
-3. **Complete.** In one atomic write, set the purchase `status = "active"` and
-   `credit_transaction_id` to the returned id, plus the entry change (featured:
-   new `featured_until`). PG: `runTransaction`; SQLite:
-   `runSqliteTransaction` (synchronous); D1: `runD1Batch`. If this write throws,
-   refund with `addCredits({ type: "refund" })` and delete the pending rows.
-
-Featured: only `approved` entries; new expiry is `max(now, featured_until) +
-days`, so repeated purchases stack. Compute it in SQL inside the step-3 UPDATE,
-never read-then-write (a concurrent purchase would be lost), e.g.
-PG `GREATEST(now(), COALESCE(featured_until, now())) + make_interval(days => ?)`,
-SQLite / D1 (seconds) `max(CAST(strftime('%s','now') AS INTEGER),
-COALESCE(featured_until, 0)) + ? * 86400`. A plain UPDATE works inside a D1
-batch; read the new value back afterwards for the return value.
-
-Paid listing rejected by admin: always `addCredits({ type: "refund" })` and mark
-that purchase `refunded`.
-
-Reconciliation: a `pending` purchase older than a few minutes means the process
-died between steps (or step 2 failed with a non-balance error). Look up the
-`consumption` ledger row by `metadata.dirPurchaseId` (SQLite / D1:
-`json_extract(metadata, '$.dirPurchaseId') = ?`; PG:
-`metadata->>'dirPurchaseId' = ?`). If it exists, finish step 3 with it; otherwise delete the
-pending row. A one-off admin script is enough; do not build a job for it. The
-partial unique index on `credit_transaction_id` prevents recording the same
-debit twice.
+- Paid listing (`kind = "listing"`, `credits = pricing.listingCredits`): insert
+  the `dir_entry` (`listing_type = "paid"`, `status = "pending"`) first, then
+  the pending purchase; on insufficient credits delete both. Step 3 only
+  activates the purchase. Rejected by admin: always
+  `addCredits({ type: "refund" })` and mark the purchase `refunded`.
+- Featured (`kind = "featured"`, plan from `pricing.featured`): only `approved`
+  entries. Step 3 also sets `featured_until = max(now, featured_until) + days`
+  in SQL so purchases stack: PG
+  `GREATEST(now(), COALESCE(featured_until, now())) + make_interval(days => ?)`,
+  SQLite / D1 (seconds) `max(CAST(strftime('%s','now') AS INTEGER),
+  COALESCE(featured_until, 0)) + ? * 86400`; read it back for the return value.
+- The partial unique index on `credit_transaction_id` prevents recording one
+  debit twice.
 
 Known gap inherited from credits: if a user later refunds a credit package,
 credits may only be clawed back to zero and already-active featured placement is
-not revoked.
-
-### Starter prerequisite: credits on SQLite / D1
-
-Older starters cannot debit credits on SQLite or D1 (assertions 5, 6 and 9 fail
-before any directory code runs): `credit_balance` is TEXT, so
-`credit_balance >= ?` compares as text (`'200' >= 70` is false), and
-better-sqlite3 rejects the async `db.transaction` callback.
-
-Required starter version: one that contains the TinyShip credits fix
-"synchronous SQLite transactions" (`STARTER_CREDITS_FIX`, see below). Check:
-`libs/database/index.ts` exports `runSqliteTransaction`, and
-`libs/credits/service.ts` uses `CAST(credit_balance AS REAL) >= ?` on SQLite and
-D1. The fixed approach:
-
-- Balance check: `CAST(credit_balance AS REAL) >= ?` on SQLite / D1 (credits are
-  integers).
-- PG: `runTransaction(async (tx) => ...)` (Drizzle transaction).
-- SQLite: `runSqliteTransaction((tx) => ...)`, a synchronous better-sqlite3
-  transaction (`BEGIN IMMEDIATE`) whose callback never awaits, so no other
-  request can interleave on the single connection.
-- D1: `runD1Batch` / `runNativeD1Batch` (atomic batch); `runTransaction`
-  throws on D1.
-
-`STARTER_CREDITS_FIX`: branch `fix/credits-sqlite-d1` (not merged upstream yet).
-Replace this line with the merged commit or release tag once it lands.
-
-If the starter lacks the fix, stop and tell the user to update the starter
-first. Do not hand-patch the credits service with a manual
-`BEGIN` / `await` / `COMMIT` wrapper: on the single better-sqlite3 connection
-that lets concurrent writes leak into the transaction.
+not revoked. Assertions 5, 6 and 9 need the baseline §4 starter prerequisite.
 
 ## Ads
 
@@ -599,57 +509,16 @@ failure.
 - Load `.env` and import `@libs/database` / `@libs/directory` with dynamic
   `import()` after setting `DB_DIALECT`, because the dialect is fixed at module
   load.
-- D1 has no Node driver. Get the local binding with
-  `getPlatformProxy({ configPath: "apps/tanstack-app/wrangler.jsonc", persist:
-  { path: "apps/tanstack-app/.wrangler/state/v3" } })` from `wrangler`, and run
-  the whole script inside `withD1(proxy.env.DB, fn)`; dispose the proxy after.
+- D1 binding: `getPlatformProxy({ configPath: "apps/tanstack-app/wrangler.jsonc",
+  persist: { path: "apps/tanstack-app/.wrangler/state/v3" } })` (baseline §5.1).
 - SQLite / D1 store timestamps in seconds. In assertion 7, wait at least 1 s
   between approving E1 and E3 so `published_at` really differs.
 - Use unique ids / slugs per run and clean up, so the script can run twice.
 
-Run three rounds:
-
-| Round | `DB_DIALECT` | Build database with |
-|-------|--------------|---------------------|
-| SQLite | `sqlite` | `mkdir -p data && pnpm db:push:sqlite` (without `data/` drizzle-kit errors but the wrapper still prints success) |
-| PG | `pg` | `pnpm db:push` on a fresh database |
-| D1 | `d1` | `npx wrangler d1 migrations apply tinyship-db --local` from `apps/tanstack-app` |
-
-Migration-only round (PG and SQLite, in addition to the rounds above): on a
-new empty database, apply only the migration SQL files (every file in the
-journal, in journal order, split on `--> statement-breakpoint`; no `db:push`)
-and confirm all 6 recipe tables and their indexes exist with the columns of the
-schema files. This proves the generated recipe migration alone builds the full
-schema. `verify.ts` may implement it behind a flag such as `--migrations-only`.
-PG note: if the starter's PG journal lists an entry without its SQL file (see
-Migration rule 8), apply the starter base with `pnpm db:push` from a commit
-before the recipe, then apply only the recipe migration file.
-
-Script / verification steps:
-
-1. Start from a clean clone, `pnpm install`, configure `.env`; for D1 configure
-   `apps/tanstack-app/.dev.vars`.
-2. Apply this recipe.
-3. Build the database for the current round using the table above.
-4. Run `pnpm db:generate` and `pnpm db:generate:sqlite`; both must report no
-   schema changes after the recipe migrations are generated.
-5. Grep recipe migration SQL and fail if any `CREATE TABLE` or `CREATE INDEX`
-   lacks `IF NOT EXISTS`.
-6. Idempotency:
-   - SQLite and PG: execute the generated recipe SQL again (split on
-     `--> statement-breakpoint`) against the already-built database and
-     require success. `verify.ts` can do this itself.
-   - D1: copy / rename the recipe migration to simulate regeneration after an
-     upstream merge, then apply again and require success.
-7. Run the selected app's typecheck, for example `pnpm typecheck:tanstack`
-   (`pnpm typecheck` runs every app). App typechecks cover `libs/` and
-   `config/` but not `scripts/`.
-8. Run the selected app build command, for example `pnpm build:tanstack` when
-   the user scoped TanStack.
-9. Seed one admin, one normal user, two categories, and three tags.
-10. Execute the assertions below.
-
-Required assertions:
+Run the baseline §5 rounds (SQLite, PG, D1, migrations-only for all 6 tables).
+`verify.ts` may implement migrations-only behind `--migrations-only`.
+Seed one admin, one normal user, two categories, and three tags, then run the
+required assertions:
 
 | # | Action | Assertion |
 |---|--------|-----------|
@@ -665,36 +534,16 @@ Required assertions:
 | 10 | Insert one active ad and one expired ad | Query by `slot_key` returns only the active ad |
 | 11 | Delete user A | E1 still exists with `submitter_id = NULL`; A's purchases are cascade-deleted |
 
-Passing line: steps 3-10, the migration-only round (PG, SQLite), and all
-assertions must pass for SQLite, PG, and D1.
+Passing line: all baseline §5 steps and all assertions for SQLite, PG and D1.
+Directory page content check (baseline §5.3): home HTML contains the featured
+entry with its featured badge and the active `home_top` ad title, not the
+expired ad. Screenshots: directory home and admin pages (baseline §5.5).
 
-Page acceptance (each targeted app, dev server running, demo data seeded):
+## Pages
 
-1. Every page in the Pages table returns HTTP 200 (admin page: 200 when
-   signed in as admin; signed-out may redirect to sign-in). Category and detail
-   use a seeded slug.
-2. Home HTML contains the featured entry (with its featured badge) and the
-   title of the active `home_top` ad, and not the expired ad.
-3. Hard-coded color check: grep the new page files and fail on
-   `(bg|text|border)-(red|green|blue|amber|yellow|gray|white|black)` or hex /
-   `rgb(` colors.
-4. Visual check: take a screenshot of the home page and the admin page (e.g.
-   Playwright, 1280x900) next to an existing starter page (`/[lang]/blog` and
-   `/[lang]/admin/users`) under the same theme, and confirm: same header /
-   sidebar, same background, card radius / border, type scale and primary
-   color; an entry without a logo shows its initial letter. Switch the theme
-   once and confirm the directory pages follow it.
-Build the D1 round from a fresh `apps/tanstack-app/.wrangler/state` and copy
-`.dev.vars.example` to `.dev.vars` first.
-
-## Pages and UI contract
-
-Which apps: the recipe targets exactly the apps chosen in `SKILL.md` Step 3
-(Scope). Every targeted app must ship all 5 pages below; an app that is not
-targeted gets none. "Keep Next + Nuxt + TanStack in sync" therefore means all
-three apps get all 5 pages; tinyship-cf means TanStack only. A recipe run is
-not complete if a targeted app lacks a page (`libs/directory` alone is not
-enough).
+Every targeted app ships these 5 pages + an admin sidebar entry (baseline §1,
+UI per baseline §2: featured = `Badge` default, status pending / rejected =
+`secondary` / `destructive`, tags = `outline`, logos via `Avatar` fallback).
 
 | Page | Next (`apps/next-app/app/[lang]/...`) | Nuxt (`apps/nuxt-app/pages/...`, locale via i18n module) | TanStack (`apps/tanstack-app/src/routes/$lang/...`) |
 |------|------|------|------|
@@ -703,36 +552,6 @@ enough).
 | Entry detail | `(root)/directory/e/[slug]/page.tsx` | `directory/e/[slug].vue` | `(root)/directory/e/$slug.tsx` |
 | Submit (login required; paid toggle) | `(root)/directory/submit/page.tsx` | `directory/submit.vue` | `(root)/directory/submit.tsx` |
 | Admin: entry review + manual ads | `admin/directory/page.tsx` | `admin/directory/index.vue` (`definePageMeta({ layout: "admin" })`) | `admin/directory.tsx` |
-
-Add the admin page to the app's admin sidebar (Next
-`apps/next-app/components/app-sidebar.tsx`, TanStack
-`apps/tanstack-app/src/components/admin/app-sidebar.tsx`, Nuxt
-`apps/nuxt-app/components/AppSidebar.vue`) with an i18n label.
-
-UI rules (pages must look like the starter's own pages):
-
-- Use only the starter's theme components. React apps (Next, TanStack):
-  `libs/react-shared/ui/*` — `card` (`Card`, `CardHeader`, `CardTitle`,
-  `CardDescription`, `CardContent`, `CardFooter`), `button` (`Button`,
-  `buttonVariants` for links), `badge` (`Badge`; featured = `default`, status
-  pending = `secondary`, rejected = `destructive`, tags = `outline`), `input`,
-  `label`, `select`, `switch`, `alert`, `avatar`, `table`, `separator`. Nuxt:
-  the same components under `apps/nuxt-app/components/ui/*`.
-- Colors only through theme tokens (`bg-background`, `bg-card`, `bg-muted`,
-  `text-foreground`, `text-muted-foreground`, `border-border`, `text-primary`,
-  `text-destructive`, ...) defined by `libs/ui/styles/themes/*.css`. No
-  hard-coded colors (`bg-red-*`, `text-white`, hex, `rgb()`); pages must follow
-  the theme switcher and dark mode.
-- Layout: public pages render inside the existing `(root)` layout (global
-  header / footer) and mirror the blog list page (`min-h-screen bg-background`,
-  `max-w-7xl` container, centered `text-4xl` title + `text-muted-foreground`
-  subtitle, card grid). Admin page renders inside the admin layout / sidebar
-  and mirrors `admin/users` (`container mx-auto py-10 px-5`, `text-2xl` title,
-  `Card` + `Table`).
-- Logo fallback: render logos with `Avatar` / `AvatarImage` and an
-  `AvatarFallback` showing the entry name's first letter, so a missing
-  `logo_url` or a failed image load still shows an initial-letter avatar.
-- Copy goes through the app's i18n packs (`apply.md` locked-key rules).
 
 ## Free implementation area
 
@@ -755,6 +574,6 @@ custom-field filtering.
 4. `config/directory.ts` -> 5. database schema + barrel exports ->
 6. migrations named `recipe_directory_v1` and made idempotent ->
 7. `libs/directory/index.ts` public contract -> 8. the 5 pages + admin sidebar
-entry in every targeted app (Pages and UI contract) ->
+entry in every targeted app (Pages) ->
 9. i18n packs + auth chrome -> 10. `scripts/recipes/directory/verify.ts` ->
-11. verify SQLite, PG, and D1.
+11. baseline §5 acceptance.
