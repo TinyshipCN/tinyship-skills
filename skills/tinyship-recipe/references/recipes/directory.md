@@ -358,6 +358,7 @@ submitEntry({ userId, name, url, tagline?, categoryId?, tagIds?, customFields?, 
 reviewEntry({ entryId, reviewerId, action: "approve" | "reject", reason? }): Promise<void>
 purchaseFeatured({ entryId, userId, days }): Promise<{ purchaseId; featuredUntil: Date }>
 searchEntries({ q?, categorySlug?, tagSlugs?, page?, pageSize? }): Promise<{ items: unknown[]; total }>
+reconcilePurchases({ olderThanMinutes? }): Promise<{ completed; deleted; refundedWithoutRefund }> // baseline §4
 ```
 
 - Enums: entry `status` pending / approved / rejected; `listing_type` free /

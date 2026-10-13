@@ -55,6 +55,7 @@ Give a **setup briefing** from the recipe (payment later? AI keys later?).
 Do **not** choose SQLite vs Postgres or Next vs Nuxt vs TanStack.
 
 Then follow `tinyship-setup` in full. Come back here after it finishes.
+(Acceptance rounds need only the recipe's `round.env.template` + install + DB + seed.)
 
 If port **7001 is already taken**, start the chosen app on a free port and set
 `APP_BASE_URL` + `BETTER_AUTH_URL` to that origin before verifying. Setup does
@@ -74,7 +75,7 @@ not mention this; do it anyway.
 ## Step 4: Apply the recipe
 
 Follow [references/apply.md](references/apply.md) and the recipe file. One order
-for every recipe (complex recipes also follow `recipes/_baseline.md`):
+for every recipe (complex recipes also follow `references/recipes/_baseline.md`):
 
 1. Home: Landing contract (CTA hrefs, hide empty tech stack) — or, if the recipe
    replaces the home page, build the product home instead (baseline §2)
@@ -83,7 +84,7 @@ for every recipe (complex recipes also follow `recipes/_baseline.md`):
 3. Complex recipes: config → schema + migration → library → pages + admin entry
    → copy the recipe scripts
 4. i18n in `en.ts` **and** `zh-CN.ts`: `home.*` (home-replaced: only
-   `home.footer`) plus recipe keys; auth chrome (`common.siteName`,
+   `home.metadata` + `home.footer`) plus recipe keys; auth chrome (`common.siteName`,
    `auth.metadata.signin` / `signup`, `auth.signup.title`) says `{product}`.
    Do not edit `config.app.name` or logo files
 5. Hand off to `tinyship-ai` / `tinyship-payment` only if the recipe says so

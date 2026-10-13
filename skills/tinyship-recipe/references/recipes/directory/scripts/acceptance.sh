@@ -42,6 +42,6 @@ step "verify.ts second run" env DB_DIALECT=$R npx tsx scripts/recipes/directory/
 for a in $APPS; do
   [ $R = d1 ] && [ $a != tanstack ] && continue   # D1 round: verify.ts only unless TanStack is targeted
   step "typecheck:$a" pnpm typecheck:$a
-  step "build:$a" env DB_DIALECT=$R pnpm build:$a
+  step "build:$a" env DB_DIALECT=$R BUILD_TIME=true pnpm build:$a
 done
 echo "DONE $R fails=$FAILS logs=$LOG"; exit $((FAILS>0))

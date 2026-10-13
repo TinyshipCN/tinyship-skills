@@ -23,13 +23,15 @@ stated here or in the recipe is the agent's call, judged by §5.
 
 When the locale root becomes the product page:
 
-- Skip `apply.md` Landing contract and do not rewrite `home.*` except
-  `home.footer`. The old marketing component is removed from that file.
+- Skip `apply.md` Landing contract; of `home.*` rewrite only `home.metadata`
+  (site title / og / twitter via `app/[lang]/layout.tsx`) and `home.footer`, so
+  no TinyShip remains. The old marketing component is removed from that file.
 - Header / footer: keep components and theme, change only links (recipe lists
   keep / hide / promote). Logo → locale root. Hide = remove links desktop +
   mobile + footer, keep route files; omit an empty footer `<nav>`.
-- Links: default locale (`config.app.i18n.defaultLocale`) at `/`, others
-  `/<locale>/...`. Never hard-code `'zh-CN'`; the starter header does
+- Links: home is `/` for the default locale (`config.app.i18n.defaultLocale`),
+  `/<locale>` otherwise; subpages always `/${locale}/...` (middleware only
+  unprefixes home). Never hard-code `'zh-CN'`; the starter header does
   (`localeHomePath`, language switch) — fix those lines when you touch it.
 
 ## 3. Database
