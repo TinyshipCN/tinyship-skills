@@ -77,9 +77,8 @@ Create the schema files exactly here:
   `DB_DIALECT` selection pattern (`pg`, `sqlite`, `d1`)
 - schema barrel export so Drizzle sees the files
 
-The finalized spec describes five domain tables plus one join table:
-`dir_category`, `dir_tag`, `dir_entry`, `dir_purchase`, `dir_ad`, and
-`dir_entry_tag`. Do not modify existing tables. `dir_entry.submitter_id`
+The recipe adds exactly 6 tables: `dir_category`, `dir_tag`, `dir_entry`,
+`dir_entry_tag`, `dir_purchase`, and `dir_ad`. Do not modify existing tables. `dir_entry.submitter_id`
 references `user`; `dir_purchase.credit_transaction_id` references
 `credit_transaction`; nothing references `order`.
 
@@ -481,9 +480,12 @@ export async function searchEntries(input: {
 
 Implementation rules:
 
-- Do not use `db.transaction()` in `libs/directory`: D1 rejects it and
-  better-sqlite3 rejects async callbacks. Write sequentially and compensate
-  (see Credits and purchases).
+- Do not call `db.transaction()` directly in `libs/directory`: D1 rejects it
+  and better-sqlite3 rejects async callbacks. For a multi-statement write use
+  the starter helpers per dialect: `runTransaction` (PG, async callback),
+  `runSqliteTransaction` (SQLite, synchronous callback with `.run()` /
+  `.get()` / `.all()`, no `await`), and `runD1Batch` (D1). See Credits and
+  purchases.
 - Throw an error with `code = "INSUFFICIENT_CREDITS"` when the debit fails for
   lack of balance; `consumeCredits` returns `success: false` for every error,
   so check its `error` text instead of treating any failure as low balance.
@@ -491,7 +493,7 @@ Implementation rules:
 - `status` values are only `pending`, `approved`, `rejected`.
 - `listing_type` values are only `free`, `paid`.
 - `dir_purchase.kind` values are only `listing`, `featured`.
-- `dir_purchase.status` values are only `active`, `refunded`.
+- `dir_purchase.status` values are only `pending`, `active`, `refunded`.
 - Search only approved entries. Keyword search matches `name` and `tagline`
   (`ILIKE` on PG, `LIKE` on SQLite / D1). Category and tag filters are allowed.
 - Sort active featured entries first, then the rest by `published_at`
@@ -504,27 +506,35 @@ Implementation rules:
 Use only credits. Do not add direct item checkout and do not touch payment
 fulfillment code.
 
-Paid listing:
+Every purchase (paid listing or featured) follows the same three steps, so a
+crash at any point leaves a row that can be reconciled:
 
-1. If the user chooses paid submission, call the existing
-   `creditService.consumeCredits` first.
-2. On success, create `dir_entry` with `listing_type = "paid"` and
-   `status = "pending"`, then create one `dir_purchase` with
-   `kind = "listing"` and the returned `credit_transaction_id`.
-3. If the entry is rejected, always call `addCredits({ type: "refund" })` and
-   mark that purchase `refunded`.
+1. **Pending.** Insert one `dir_purchase` with `status = "pending"`, the
+   `kind`, `credits` and `days`, and `credit_transaction_id = NULL`. For a paid
+   listing, insert the `dir_entry` (`listing_type = "paid"`,
+   `status = "pending"`) first; if the purchase insert fails, delete it.
+2. **Debit.** Call the existing `creditService.consumeCredits` with
+   `metadata: { dirPurchaseId }`. If it fails, delete the pending purchase (and
+   the paid-listing entry) and throw; on insufficient balance throw
+   `code = "INSUFFICIENT_CREDITS"`.
+3. **Complete.** In one atomic write, set the purchase `status = "active"` and
+   `credit_transaction_id` to the returned id, plus the entry change (featured:
+   new `featured_until`). PG: `runTransaction`; SQLite:
+   `runSqliteTransaction` (synchronous); D1: `runD1Batch`. If this write throws,
+   refund with `addCredits({ type: "refund" })` and delete the pending rows.
 
-Featured listing:
+Featured: only `approved` entries; new expiry is `max(now, featured_until) +
+days`, so repeated purchases stack.
 
-1. Only `approved` entries can be featured.
-2. Call `creditService.consumeCredits` first.
-3. New expiry is `max(now, featured_until) + days`, so repeated purchases stack.
-4. Write one `dir_purchase` with `kind = "featured"`.
+Paid listing rejected by admin: always `addCredits({ type: "refund" })` and mark
+that purchase `refunded`.
 
-Compensation rule: credit debit and directory writes may not be in one
-cross-dialect transaction. Debit credits first; if the directory write fails,
-refund with `addCredits({ type: "refund" })`. The partial unique index on
-`credit_transaction_id` prevents recording the same debit twice.
+Reconciliation: a `pending` purchase older than a few minutes means the process
+died between steps. If a `consumption` ledger row has
+`metadata.dirPurchaseId` = that id, finish step 3 with it; otherwise delete the
+pending row. A one-off admin script is enough; do not build a job for it. The
+partial unique index on `credit_transaction_id` prevents recording the same
+debit twice.
 
 Known gap inherited from credits: if a user later refunds a credit package,
 credits may only be clawed back to zero and already-active featured placement is
@@ -532,20 +542,33 @@ not revoked.
 
 ### Starter prerequisite: credits on SQLite / D1
 
-As of starter commit `dc1b4f7`, `libs/credits/service.ts` cannot debit credits
-on SQLite or D1, so assertions 5, 6 and 9 fail before any directory code runs:
+Older starters cannot debit credits on SQLite or D1 (assertions 5, 6 and 9 fail
+before any directory code runs): `credit_balance` is TEXT, so
+`credit_balance >= ?` compares as text (`'200' >= 70` is false), and
+better-sqlite3 rejects the async `db.transaction` callback.
 
-- `credit_balance` is a TEXT column, and `credit_balance >= ?` compares as text
-  (`'200' >= 70` is false). Fix: `CAST(credit_balance AS REAL) >= ?` in the D1
-  native SQL and in the Drizzle path when the dialect is `sqlite`.
-- Local SQLite: `db.transaction(async ...)` throws "Transaction function cannot
-  return a promise" (better-sqlite3). Fix: for `DB_DIALECT=sqlite`, run the
-  same callback between `sqliteInstance.exec("BEGIN IMMEDIATE")` and
-  `COMMIT` / `ROLLBACK`.
+Required starter version: one that contains the TinyShip credits fix
+"synchronous SQLite transactions" (`STARTER_CREDITS_FIX`, see below). Check:
+`libs/database/index.ts` exports `runSqliteTransaction`, and
+`libs/credits/service.ts` uses `CAST(credit_balance AS REAL) >= ?` on SQLite and
+D1. The fixed approach:
 
-If the starter already has these fixes, skip this. Otherwise apply them as a
-separate starter fix (they are not part of the directory feature), and tell
-the user that the upstream starter needs them.
+- Balance check: `CAST(credit_balance AS REAL) >= ?` on SQLite / D1 (credits are
+  integers).
+- PG: `runTransaction(async (tx) => ...)` (Drizzle transaction).
+- SQLite: `runSqliteTransaction((tx) => ...)`, a synchronous better-sqlite3
+  transaction (`BEGIN IMMEDIATE`) whose callback never awaits, so no other
+  request can interleave on the single connection.
+- D1: `runD1Batch` / `runNativeD1Batch` (atomic batch); `runTransaction`
+  throws on D1.
+
+`STARTER_CREDITS_FIX`: branch `fix/credits-sqlite-d1` (not merged upstream yet).
+Replace this line with the merged commit or release tag once it lands.
+
+If the starter lacks the fix, stop and tell the user to update the starter
+first. Do not hand-patch the credits service with a manual
+`BEGIN` / `await` / `COMMIT` wrapper: on the single better-sqlite3 connection
+that lets concurrent writes leak into the transaction.
 
 ## Ads
 
@@ -583,6 +606,16 @@ Run three rounds:
 | PG | `pg` | `pnpm db:push` on a fresh database |
 | D1 | `d1` | `npx wrangler d1 migrations apply tinyship-db --local` from `apps/tanstack-app` |
 
+Migration-only round (PG and SQLite, in addition to the rounds above): on a
+new empty database, apply only the migration SQL files (every file in the
+journal, in journal order, split on `--> statement-breakpoint`; no `db:push`)
+and confirm all 6 recipe tables and their indexes exist with the columns of the
+schema files. This proves the generated recipe migration alone builds the full
+schema. `verify.ts` may implement it behind a flag such as `--migrations-only`.
+PG note: if the starter's PG journal lists an entry without its SQL file (see
+Migration rule 8), apply the starter base with `pnpm db:push` from a commit
+before the recipe, then apply only the recipe migration file.
+
 Script / verification steps:
 
 1. Start from a clean clone, `pnpm install`, configure `.env`; for D1 configure
@@ -614,8 +647,8 @@ Required assertions:
 | 1 | User A submits free E1 | Status is `pending`; search cannot find it |
 | 2 | Admin approves E1 | Status is `approved`; `published_at` is set; keyword, category, and tag searches can find it |
 | 3 | Admin rejects E2 with a reason | Status is `rejected`; `reject_reason` is set; search cannot find it |
-| 4 | A has zero credits and tries to feature E1 | Error is specifically insufficient balance (not any failure); `featured_until` unchanged; no new purchase |
-| 5 | Add 200 credits to A, then feature E1 for 7 days | Expiry is about now + 7 days; one new purchase; one credit debit; balance is correct |
+| 4 | A has zero credits and tries to feature E1 | Error is specifically insufficient balance (not any failure); `featured_until` unchanged; no new purchase (the pending row is removed) |
+| 5 | Add 200 credits to A, then feature E1 for 7 days | Expiry is about now + 7 days; one new `active` purchase linked to the debit; no `pending` purchase left; one credit debit; balance is correct |
 | 6 | Feature E1 for another 7 days | Expiry is about now + 14 days, proving stacking |
 | 7 | Create an approved, unfeatured E3 and search | E1 ranks before E3 while E1 is featured |
 | 8 | Move E1 `featured_until` into the past | E1 no longer receives featured ranking |
@@ -623,7 +656,8 @@ Required assertions:
 | 10 | Insert one active ad and one expired ad | Query by `slot_key` returns only the active ad |
 | 11 | Delete user A | E1 still exists with `submitter_id = NULL`; A's purchases are cascade-deleted |
 
-Passing line: steps 3-10 and all assertions must pass for SQLite, PG, and D1.
+Passing line: steps 3-10, the migration-only round (PG, SQLite), and all
+assertions must pass for SQLite, PG, and D1.
 Build the D1 round from a fresh `apps/tanstack-app/.wrangler/state` and copy
 `.dev.vars.example` to `.dev.vars` first.
 
