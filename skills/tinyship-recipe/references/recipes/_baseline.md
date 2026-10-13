@@ -92,11 +92,16 @@ simplify while building UI.
   3. One atomic write (helper per dialect above) sets `status = "active"`,
      the ledger id and the domain change. Derived values (e.g. stacked
      expiry) are computed in SQL inside that UPDATE, never read-then-write.
-     If it throws, refund with `addCredits({ type: "refund" })`.
-  - Reconciliation: stale `pending` rows are matched to the ledger by
-    metadata id (SQLite / D1 `json_extract(metadata, '$.<key>')`, PG
-    `metadata->>'<key>'`); found → finish step 3, not found → delete. A
-    one-off admin script is enough.
+     If it throws: first set the purchase `status = "refunded"` (conditional
+     `WHERE status = 'pending'`), then refund with
+     `addCredits({ type: "refund" })`. Marking first means reconciliation can
+     never reactivate it; a crash between the two leaves a `refunded` row
+     without a refund ledger row, which the reconciliation script reports.
+  - Reconciliation acts **only on `status = 'pending'`** rows older than a few
+    minutes: match the ledger by metadata id (SQLite / D1
+    `json_extract(metadata, '$.<key>')`, PG `metadata->>'<key>'`); found →
+    finish step 3, not found → delete. It also lists `refunded` rows that have
+    a consumption but no refund ledger row. A one-off admin script is enough.
 
 ## 5. Acceptance
 
@@ -108,27 +113,39 @@ failure) and its assertions.
 
    | Round | `DB_DIALECT` | Build database with |
    |-------|--------------|---------------------|
-   | SQLite | `sqlite` | `mkdir -p data && pnpm db:push:sqlite` |
-   | PG | `pg` | `pnpm db:push` on a fresh database |
+   | SQLite | `sqlite` | `mkdir -p data && pnpm db:push:sqlite` (without `data/` drizzle-kit fails but the wrapper still prints success) |
+   | PG | `pg` | `pnpm db:push` on a fresh database (not `db:migrate`: the starter PG journal has a `0000` entry without its SQL file) |
    | D1 | `d1` | fresh `apps/tanstack-app/.wrangler/state`, `.dev.vars` from `.dev.vars.example`, `npx wrangler d1 migrations apply tinyship-db --local` in `apps/tanstack-app` |
 
    In each: `pnpm db:generate` and `pnpm db:generate:sqlite` report no schema
-   changes; the recipe SQL passes the idempotent-DDL grep and re-applies
-   cleanly (SQLite / PG: re-run its statements; D1: copy / rename the file and
-   apply again); typecheck and build of the targeted apps pass; `verify.ts`
-   passes. D1 has no Node driver: `verify.ts` uses `getPlatformProxy` from
-   `wrangler` and runs inside `withD1(proxy.env.DB, fn)`.
+   changes; the idempotent-DDL grep passes (fail on any `CREATE TABLE` /
+   `CREATE INDEX` without `IF NOT EXISTS` and on any `ADD CONSTRAINT` not
+   wrapped in `DO $$ ... duplicate_object ...`); the recipe SQL re-applies
+   cleanly (SQLite / PG: re-run its statements split on
+   `--> statement-breakpoint`; D1: copy / rename the file and apply again);
+   typecheck and build of the targeted apps pass, and `verify.ts` is
+   typechecked separately because app typechecks do not cover `scripts/`
+   (e.g. `tsconfig.verify.json` = `{"extends": "./tsconfig.json",
+   "compilerOptions": {"noEmit": true}, "files":
+   ["scripts/recipes/<id>/verify.ts"]}`, then `npx tsc -p
+   tsconfig.verify.json`); `verify.ts` passes. D1 has no
+   Node driver: `verify.ts` uses `getPlatformProxy` from `wrangler`, runs
+   inside `withD1(proxy.env.DB, fn)` and disposes the proxy afterwards.
 2. Migrations-only (PG, SQLite): on a new empty DB apply only migration SQL in
    journal order (no `db:push`) and compare the recipe tables' columns and
    indexes with the recipe snapshot. PG: if the starter journal has an entry
    without SQL, build the base with `db:push` of the pre-recipe schema, then
    apply only the recipe file.
 3. Pages: with demo data seeded, every recipe page returns HTTP 200 in each
-   targeted app (admin: 200 signed in as admin, signed-out may redirect), plus
-   the recipe's own content checks.
-4. Hard-coded color grep over the new page files fails on
-   `(bg|text|border)-(red|green|blue|amber|yellow|gray|white|black)`, hex or
-   `rgb(` colors.
+   targeted app (admin: 200 signed in as admin, signed-out may redirect);
+   pages that need login (submit) redirect to sign-in or show a sign-in
+   prompt when signed out; plus the recipe's own content checks.
+4. Hard-coded color grep over the new page files fails on any Tailwind
+   palette color or literal color:
+   `\b(bg|text|border|ring|fill|stroke|from|via|to|outline|divide|shadow|decoration|accent|caret)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b`,
+   `\b(bg|text|border|ring|fill|stroke)-(white|black)\b`, hex (`#[0-9a-fA-F]{3,8}\b`),
+   `rgb(`, `hsl(`, `oklch(`. Spacing / size classes (`p-4`, `w-36`) do not
+   match because the middle segment must be a palette name.
 5. Visual: screenshot (e.g. Playwright, 1280x900) the recipe's home and admin
    pages next to `/[lang]/blog` and `/[lang]/admin/users` under the same
    theme; header / sidebar, background, card radius / border, type scale and

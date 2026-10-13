@@ -450,9 +450,8 @@ export async function searchEntries(input: {
 Implementation rules:
 
 - Multi-statement writes: baseline §4 helpers only.
-- Throw an error with `code = "INSUFFICIENT_CREDITS"` when the debit fails for
-  lack of balance; `consumeCredits` returns `success: false` for every error,
-  so check its `error` text instead of treating any failure as low balance.
+- Debit errors: baseline §4 (`INSUFFICIENT_CREDITS` only for
+  `error === "Insufficient credits"`).
 
 - `status` values are only `pending`, `approved`, `rejected`.
 - `listing_type` values are only `free`, `paid`.
@@ -482,6 +481,8 @@ row and `metadata: { dirPurchaseId }`:
   `GREATEST(now(), COALESCE(featured_until, now())) + make_interval(days => ?)`,
   SQLite / D1 (seconds) `max(CAST(strftime('%s','now') AS INTEGER),
   COALESCE(featured_until, 0)) + ? * 86400`; read it back for the return value.
+- Step-3 failure: baseline rule (mark `refunded`, then refund); for a paid
+  listing then also delete the pending entry.
 - The partial unique index on `credit_transaction_id` prevents recording one
   debit twice.
 
