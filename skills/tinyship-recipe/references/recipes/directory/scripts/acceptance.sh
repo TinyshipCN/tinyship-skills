@@ -10,6 +10,8 @@ set -uo pipefail
 R=${DIALECT:?DIALECT=sqlite|pg|d1} SRC=${SRC:?SRC=project git dir} BR=${BRANCH:?BRANCH=branch}
 PGURL=${PGURL:-postgresql://postgres:postgres@localhost:5432/recipe_round}
 APPS=${APPS:-next}
+# .env must win: drop DB/auth vars inherited from the calling shell
+unset DATABASE_URL DB_DIALECT SQLITE_DB_PATH BETTER_AUTH_SECRET BETTER_AUTH_URL APP_BASE_URL
 HERE=$(cd "$(dirname "$0")" && pwd)
 W=$(mktemp -d)/round-$R; LOG=$W.logs; mkdir -p "$LOG"; FAILS=0
 res(){ echo "RESULT $R | $1 | $2"; [ "$2" = FAIL ] && FAILS=$((FAILS+1)); }
