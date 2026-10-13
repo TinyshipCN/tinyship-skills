@@ -25,12 +25,8 @@ Default public locale is Chinese at `/`; `/zh-CN` redirects. Verify `/` and `/en
 
 ## Landing contract (once per home file)
 
-Skip this whole section when the recipe **replaces the home page**
-(`recipes/_baseline.md` §2b, e.g. `directory`): the home file becomes the
-product page, so the CTA / tech-stack / card-count rules below do not apply
-and `home.*` marketing copy need not be rewritten (keep `home.footer`). For
-complex recipes the baseline takes precedence over this file wherever they
-differ.
+Skip this section (and the `home.*` rewrite below, except `home.footer`) when
+the recipe replaces the home page; see `recipes/_baseline.md` §2.
 
 1. **Primary CTA href** is hardcoded to `/pricing` today (hero + final CTA).
    Change both to the recipe target (`/image-generate`, `/ai`, `/pricing`, `/signup`).
@@ -147,14 +143,10 @@ If the recipe rewrites `header.auth.getStarted`, do it in **both** locales.
 
 - Missing image / chat / video keys → `tinyship-ai`
 - User wants Stripe (or another provider) configured now → `tinyship-payment`
-- Recipe needs tables or pages outside a fixed recipe contract →
-  `tinyship-feature` and both pg + sqlite schemas
+- Tables or pages outside a recipe contract → `tinyship-feature`
 - Do not run deploy from this skill
 
 ## Complex recipes
 
-A recipe that adds tables (`New tables: Yes`) or pages must follow
-[recipes/_baseline.md](recipes/_baseline.md): page scope, UI, database,
-transactions / credits and acceptance. The recipe file only adds its own
-schema, pages, functions and assertions. Do not call the work done until every
-baseline acceptance step passes.
+Recipes that add tables or pages also follow
+[recipes/_baseline.md](recipes/_baseline.md); it wins where the two differ.

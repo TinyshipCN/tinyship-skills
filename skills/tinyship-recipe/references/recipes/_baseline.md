@@ -1,186 +1,83 @@
 # Complex recipe baseline
 
-Applies to every recipe whose file says `New tables: Yes` or adds pages
-("complex recipe"; see `catalog.md`). The recipe file adds only its own
-specifics (tables, pages, functions, assertions). Where they conflict, this
-baseline wins unless the recipe names the exception explicitly.
+For recipes that add tables or pages. The recipe adds only its specifics and
+ships fixed procedures as scripts under `recipes/<id>/scripts/`. Anything not
+stated here or in the recipe is the agent's call, judged by §5.
 
-## 1. Page scope
+## 1. Scope and UI
 
-- Targeted apps = the answer to `SKILL.md` Step 3 (Scope). Each targeted app
-  gets **every** page the recipe lists plus an admin sidebar entry; untargeted
-  apps get none. "Keep Next + Nuxt + TanStack in sync" = all three;
-  tinyship-cf = TanStack only.
-- A `libs/<recipe>` implementation without the pages is **incomplete**.
-- Admin sidebar files: Next `apps/next-app/components/app-sidebar.tsx`,
-  TanStack `apps/tanstack-app/src/components/admin/app-sidebar.tsx`, Nuxt
-  `apps/nuxt-app/components/AppSidebar.vue`.
-- Route roots: Next `apps/next-app/app/[lang]/(root)/...` and
-  `.../[lang]/admin/...`; TanStack `apps/tanstack-app/src/routes/$lang/(root)/...`
-  and `.../$lang/admin/...`; Nuxt `apps/nuxt-app/pages/...` (locale via the
-  i18n module), admin pages under `pages/admin/` with
-  `definePageMeta({ layout: 'admin' })`.
+- Every app chosen in `SKILL.md` Step 3 gets every recipe page plus an admin
+  sidebar entry; other apps get none. Library code without pages is incomplete.
+- Follow existing pages: public ones like `/[lang]/blog`, admin ones like
+  `/[lang]/admin/users`. Starter theme components only
+  (`libs/react-shared/ui/*`, Nuxt `components/ui/*`), theme tokens only (no
+  palette classes, `text-white`, hex, `rgb()`), image fallbacks via `Avatar`.
+- All copy in every `libs/i18n/locales/*` pack, including enum labels
+  (statuses, kinds) and empty / error states.
+- **Admin writes check admin themselves.** Middleware only guards admin
+  *pages*; every server action / API route that writes must verify
+  `session.user.role === admin`. Public writes (submit) require a session.
 
-## 2. UI
+## 2. Replacing the home page
 
-- Only the starter's theme components: React (Next, TanStack)
-  `libs/react-shared/ui/*` (`card`, `button` + `buttonVariants`, `badge`,
-  `input`, `label`, `select`, `switch`, `textarea`, `alert`, `avatar`,
-  `table`, `separator`, `dialog`, `pagination`); Nuxt
-  `apps/nuxt-app/components/ui/*` (same set).
-- Colors only via theme tokens from `libs/ui/styles/themes/*.css`
-  (`bg-background`, `bg-card`, `bg-muted`, `text-foreground`,
-  `text-muted-foreground`, `border-border`, `text-primary`,
-  `text-destructive`, ...). No hard-coded colors (`bg-red-*`, `text-white`,
-  hex, `rgb()`). Pages must follow the theme switcher and dark mode.
-- Layout mirrors existing starter pages: public pages inside the `(root)`
-  layout like the blog list (`min-h-screen bg-background`, `max-w-7xl`
-  container, centered `text-4xl` title + muted subtitle, card grid); admin
-  pages inside the admin layout like `admin/users` (`container mx-auto py-10
-  px-5`, `text-2xl` title, `Card` + `Table`).
-- Images that may be missing (logos, avatars) use `Avatar` / `AvatarImage` with
-  an `AvatarFallback` initial letter.
-- **All copy** (page text, buttons, sidebar label, empty / error states) goes
-  into the starter i18n packs for **every** locale the starter has
-  (`libs/i18n/locales/*`), following `apply.md` Copy rules. No literal UI
-  strings in page files.
+When the locale root becomes the product page:
 
-## 2b. Header and footer navigation
-
-When a complex recipe **replaces the marketing home** (locale root becomes a
-product page), skip `apply.md` Landing contract and rewrite the starter Header
-and Footer chrome instead. Keep the existing components and theme; only change
-links and labels. Files (only the targeted apps):
-
-| | Next | Nuxt | TanStack |
-|---|---|---|---|
-| Header | `apps/next-app/components/global-header.tsx` | `apps/nuxt-app/components/GlobalHeader.vue` | `apps/tanstack-app/src/components/global-header.tsx` |
-| Footer | `apps/next-app/components/site-footer.tsx` | `apps/nuxt-app/components/SiteFooter.vue` | `apps/tanstack-app/src/components/site-footer.tsx` |
-
-1. **Locale links**: the default locale (`config.app.i18n.defaultLocale`,
-   zh-CN in the starter) is served at `/`; other locales at `/en/...`
-   (`apply.md` Apps and files). Build links with the app's existing pattern
-   (Next / TanStack: home = `locale === config.app.i18n.defaultLocale ? "/" :
-   `/${locale}``, subpages `/${locale}/...` as the existing header does; Nuxt:
-   its i18n `localePath`). Never hard-code `'zh-CN'` in new code.
-2. **Home / logo** points at the new product home (locale root).
-3. **Promote** the recipe primary action to a top-level header link, and the
-   same link in the footer.
-4. **Hide** conflicting marketing / demo links in desktop **and** mobile menus
-   and the footer (`apply.md` Hide vs delete: hide links, keep route files).
-   If the Demos dropdown would keep 0–1 items, hide it. Hidden pages such as
-   Blog stay routable and remain the visual reference in §5.5.
-5. If every footer link is hidden, omit the `<nav>` element.
-6. New / changed labels go through i18n for every starter locale.
-7. The recipe file lists the exact keep / hide / promote set.
-
-Recipes that keep the marketing home leave header / footer alone unless they
-say otherwise.
+- Skip `apply.md` Landing contract and do not rewrite `home.*` except
+  `home.footer`. The old marketing component is removed from that file.
+- Header / footer: keep components and theme, change only links (recipe lists
+  keep / hide / promote). Logo → locale root. Hide = remove links desktop +
+  mobile + footer, keep route files; omit an empty footer `<nav>`.
+- Links: default locale (`config.app.i18n.defaultLocale`) at `/`, others
+  `/<locale>/...`. Never hard-code `'zh-CN'`; the starter header does
+  (`localeHomePath`, language switch) — fix those lines when you touch it.
 
 ## 3. Database
 
-The recipe file fixes the schema and migration name; do not rename or
-simplify while building UI.
-
-1. Schema in both trees: `libs/database/schema/pg/<recipe>.ts` and
-   `libs/database/schema/sqlite/<recipe>.ts`, a proxy
-   `libs/database/schema/<recipe>.ts`, exported from the schema barrels.
-   Supported dialects: PG, SQLite, D1 (D1 uses the SQLite schema).
-2. Generate in the user project with the recipe's exact name
-   (`recipe_<id>_v1`); let Drizzle pick the `00NN_` number:
-   `npx drizzle-kit generate --name <name>` and
-   `npx drizzle-kit generate --config=drizzle.config.sqlite.ts --name <name>`
-   (`drizzle.config.ts` needs `DATABASE_URL` even for generate). PG →
-   `libs/database/drizzle`; SQLite / D1 → `libs/database/drizzle-sqlite`.
-3. Idempotent SQL: every `CREATE TABLE` / `CREATE INDEX` uses
-   `IF NOT EXISTS`; wrap each PG `ALTER TABLE ... ADD CONSTRAINT` in
-   `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN null; END $$;`. Keep
-   keys, unique and partial unique indexes intact.
-4. Upstream journal conflict: keep upstream, delete the local recipe migration,
-   regenerate with the same name, re-apply. Later changes: new name
-   (`..._v2`) with `ALTER` only; never edit v1.
-5. Do not modify starter tables.
+- Schema and migration name are fixed by the recipe; never modify starter
+  tables. Schema in both `schema/pg/` and `schema/sqlite/` (D1 = SQLite).
+- Generate both (`npx drizzle-kit generate --name <name>` and
+  `--config=drizzle.config.sqlite.ts`), then make the SQL idempotent:
+  `IF NOT EXISTS` on every `CREATE TABLE` / `INDEX`; each PG `ADD CONSTRAINT`
+  wrapped in `DO $$ BEGIN ... EXCEPTION WHEN duplicate_object THEN null; END $$;`.
+- Later changes: new migration `..._v2`, never edit v1. Journal conflict with
+  upstream: keep upstream, delete and regenerate the recipe migration.
 
 ## 4. Transactions and credits
 
-- Multi-statement writes use only the starter helpers from `@libs/database`:
-  PG `runTransaction(async (tx) => ...)`; SQLite
-  `runSqliteTransaction((tx) => ...)` (synchronous, `.run()` / `.get()` /
-  `.all()`, no `await`); D1 `runD1Batch` / `runNativeD1Batch`. Never call
-  `db.transaction()` directly and never hand-roll `BEGIN` / `await` /
-  `COMMIT`.
-- Credits only through `creditService` (`libs/credits`): `consumeCredits`,
-  `addCredits`. Credits are integers. Do not touch payment fulfillment.
-- Starter prerequisite: the starter must export `runSqliteTransaction` and
-  compare balances with `CAST(credit_balance AS REAL)` on SQLite / D1
-  (`STARTER_CREDITS_FIX`: branch `fix/credits-sqlite-d1`, not merged upstream
-  yet; replace with the merged commit / tag once it lands). If missing, stop
-  and tell the user to update the starter; do not patch it in the recipe.
-- Paid flows: **pending → consume → complete**.
-  1. Insert the recipe's purchase row `status = "pending"`, no ledger id.
-  2. `consumeCredits({ ..., metadata: { <recipe>PurchaseId } })`. Only on
-     `error === "Insufficient credits"` delete the pending row and throw
-     `INSUFFICIENT_CREDITS`; any other error keeps it for reconciliation.
-  3. One atomic write (helper per dialect above) sets `status = "active"`,
-     the ledger id and the domain change. Derived values (e.g. stacked
-     expiry) are computed in SQL inside that UPDATE, never read-then-write.
-     If it throws: first set the purchase `status = "refunded"` (conditional
-     `WHERE status = 'pending'`), then refund with
-     `addCredits({ type: "refund" })`. Marking first means reconciliation can
-     never reactivate it; a crash between the two leaves a `refunded` row
-     without a refund ledger row, which the reconciliation script reports.
-  - Reconciliation acts **only on `status = 'pending'`** rows older than a few
-    minutes: match the ledger by metadata id (SQLite / D1
-    `json_extract(metadata, '$.<key>')`, PG `metadata->>'<key>'`); found →
-    finish step 3, not found → delete. It also lists `refunded` rows that have
-    a consumption but no refund ledger row. A one-off admin script is enough.
+- Starter must have the credits fix (`runSqliteTransaction` exported; branch
+  `fix/credits-sqlite-d1` until merged). Missing → stop, tell the user.
+- Multi-statement writes only via `@libs/database` helpers: PG
+  `runTransaction(async tx => …)`; SQLite `runSqliteTransaction(tx => …)`
+  (sync, `.run()/.get()/.all()`, no `await`); D1 `runD1Batch` /
+  `runNativeD1Batch`. Never `db.transaction()` or hand-rolled `BEGIN`.
+- Credits only via `creditService.consumeCredits` / `addCredits`; integers;
+  never touch payment fulfillment. `consumeCredits` returns `{ success, error }`.
+- Paid flow **pending → consume → complete**:
+  1. insert purchase `status = pending`;
+  2. consume with the purchase id in metadata; only
+     `error === "Insufficient credits"` deletes the pending row and throws
+     `INSUFFICIENT_CREDITS`; other errors keep it;
+  3. one atomic write sets `active`, the ledger id and the domain change,
+     derived values computed in SQL. If it throws: set `refunded`
+     (`WHERE status = 'pending'`) first, then `addCredits({ type: "refund" })`.
+- Reconciliation touches only `pending` rows (ledger matched by metadata id →
+  finish, else delete) and reports `refunded` rows lacking a refund entry.
 
-## 5. Acceptance
+## 5. Acceptance (outcomes; recipe scripts run the fixed parts)
 
-All must pass before calling the recipe done. The recipe supplies
-`scripts/recipes/<id>/verify.ts` (PASS / FAIL per check, non-zero exit on
-failure) and its assertions.
+Done only when all hold:
 
-1. Three DB rounds, each from a clean clone + `pnpm install`:
-
-   | Round | `DB_DIALECT` | Build database with |
-   |-------|--------------|---------------------|
-   | SQLite | `sqlite` | `mkdir -p data && pnpm db:push:sqlite` (without `data/` drizzle-kit fails but the wrapper still prints success) |
-   | PG | `pg` | `pnpm db:push` on a fresh database (not `db:migrate`: the starter PG journal has a `0000` entry without its SQL file) |
-   | D1 | `d1` | fresh `apps/tanstack-app/.wrangler/state`, `.dev.vars` from `.dev.vars.example`, `npx wrangler d1 migrations apply tinyship-db --local` in `apps/tanstack-app` |
-
-   In each: `pnpm db:generate` and `pnpm db:generate:sqlite` report no schema
-   changes; the idempotent-DDL grep passes (fail on any `CREATE TABLE` /
-   `CREATE INDEX` without `IF NOT EXISTS` and on any `ADD CONSTRAINT` not
-   wrapped in `DO $$ ... duplicate_object ...`); the recipe SQL re-applies
-   cleanly (SQLite / PG: re-run its statements split on
-   `--> statement-breakpoint`; D1: copy / rename the file and apply again);
-   typecheck and build of the targeted apps pass, and `verify.ts` is
-   typechecked separately because app typechecks do not cover `scripts/`
-   (e.g. `tsconfig.verify.json` = `{"extends": "./tsconfig.json",
-   "compilerOptions": {"noEmit": true}, "files":
-   ["scripts/recipes/<id>/verify.ts"]}`, then `npx tsc -p
-   tsconfig.verify.json`); `verify.ts` passes. D1 has no
-   Node driver: `verify.ts` uses `getPlatformProxy` from `wrangler`, runs
-   inside `withD1(proxy.env.DB, fn)` and disposes the proxy afterwards.
-2. Migrations-only (PG, SQLite): on a new empty DB apply only migration SQL in
-   journal order (no `db:push`) and compare the recipe tables' columns and
-   indexes with the recipe snapshot. PG: if the starter journal has an entry
-   without SQL, build the base with `db:push` of the pre-recipe schema, then
-   apply only the recipe file.
-3. Pages: with demo data seeded, every recipe page returns HTTP 200 in each
-   targeted app, for both the default locale (`/`, `/<path>`) and `/en`
-   (`/en`, `/en/<path>`) per `apply.md` Apps and files (admin: 200 signed in as admin, signed-out may redirect);
-   pages that need login (submit) redirect to sign-in or show a sign-in
-   prompt when signed out; plus the recipe's own content checks.
-4. Hard-coded color grep over the new page files fails on any Tailwind
-   palette color or literal color:
-   `\b(bg|text|border|ring|fill|stroke|from|via|to|outline|divide|shadow|decoration|accent|caret)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b`,
-   `\b(bg|text|border|ring|fill|stroke)-(white|black)\b`, hex (`#[0-9a-fA-F]{3,8}\b`),
-   `rgb(`, `hsl(`, `oklch(`. Spacing / size classes (`p-4`, `w-36`) do not
-   match because the middle segment must be a palette name.
-5. Visual: screenshot (e.g. Playwright, 1280x900) the recipe's home and admin
-   pages next to `/[lang]/blog` and `/[lang]/admin/users` under the same
-   theme; header / sidebar, background, card radius / border, type scale and
-   primary color must match, and image fallbacks must show. Switch the theme
-   once and confirm the recipe pages follow it.
+1. `acceptance.sh` passes on a clean clone for SQLite, PG (fresh DB) and D1:
+   DB builds, `db:generate` both report "No schema changes", recipe SQL
+   re-applies, `verify.ts` passes twice, targeted apps typecheck + build.
+   The D1 round runs only DB + `verify.ts` unless TanStack is targeted.
+2. Migrations-only (SQLite via `verify.ts --migrations-only`, PG via
+   `pg-migrations-only.sh`) matches the recipe snapshot.
+3. With the recipe demo seed: every page returns 200 at `/…` and `/en/…`
+   (admin signed in as admin); signed out, submit shows a sign-in prompt and
+   admin redirects; the recipe's content check holds.
+4. No hard-coded colors in new page files; no literal UI strings.
+5. Screenshots next to `/blog` and `/admin/users` match (header / sidebar,
+   background, cards, type scale, primary color); switching theme and dark
+   mode keeps every recipe page readable.
+6. `SKILL.md` Step 5 (home-replaced variant) passes.

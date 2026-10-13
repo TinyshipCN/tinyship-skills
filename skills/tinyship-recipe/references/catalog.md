@@ -19,9 +19,9 @@ Recipe files: [recipes/ai-image.md](recipes/ai-image.md),
 [recipes/waitlist.md](recipes/waitlist.md),
 [recipes/directory.md](recipes/directory.md).
 
-Complex recipes (`New tables: Yes`, or adding pages) must also follow
-[recipes/_baseline.md](recipes/_baseline.md). New complex recipes reference it
-instead of repeating it.
+Complex recipes (new tables or pages) also follow
+[recipes/_baseline.md](recipes/_baseline.md) and ship scripts under
+`recipes/<id>/scripts/`.
 
 ## Later (do not improvise)
 

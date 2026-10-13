@@ -1,99 +1,40 @@
 # Recipe: directory
 
-Complex recipe: follow [_baseline.md](_baseline.md) (page scope, UI, database,
-transactions / credits, acceptance). This file lists only directory specifics.
+Complex recipe ([_baseline.md](_baseline.md)); replaces the home page. Visitors
+browse approved entries, signed-in users submit, admins approve / reject and
+enter ads by hand. Credits only: no Stripe or other provider setup.
 
-Directory / navigation site. Visitors browse approved entries; signed-in users
-submit entries; admins approve, reject, and manually manage ads.
+Defaults: `{product}` `Directory` · `{pitch}` A curated directory of useful
+links. · `{pitch-zh}` 一个精选链接目录。 · `{cta}` Submit a link → `/submit`.
 
-## Defaults
+## Navigation
 
-| Slot | Default |
-|------|---------|
-| `{product}` | `Directory` when `config.app.name` is still `TinyShip` |
-| `{pitch}` | A curated directory of useful links. |
-| `{pitch-zh}` | 一个精选链接目录。 |
-| `{cta}` | Submit a link |
+- Home (locale root) = the directory list. Header / footer: keep Pricing
+  (buy credits), add top-level Submit, hide the Demos dropdown and Blog (routes
+  stay). Admin sidebar: Directory entry.
 
-## Setup briefing
+## Config
 
-- Database and framework: still ask in `tinyship-setup`.
-- Payment: do not configure Stripe / PayPal / WeChat Pay / Alipay / Creem /
-  Dodo for this recipe. Directory v1 uses **credits only**.
-- Credits: keep the existing credit packages and use the existing credit ledger.
-- Storage: entry logos use existing `libs/storage`.
-- After apply: run the directory verification script against SQLite, PG, and D1.
-
-## Keep / hide / promote
-
-| Action | Targets |
-|--------|---------|
-| Replace home | Locale root becomes the directory list (see Pages). Relocate or drop the marketing landing sections from that file; do not leave a second competing home. |
-| Keep routes | auth, dashboard, admin, pricing (credits), and all starter demo route **files** (hidden, not deleted) |
-| Hide from header / footer | Demos dropdown (`/ai`, `/image-generate`, `/video-generate`, `/premium-features`, `/upload`) and Blog (nav only; `/blog` stays routable as the §5.5 visual reference) |
-| Promote | Logo / Home → locale root (the list). Top-level **Submit** → `/submit`. |
-| Keep in header / footer | Pricing (`/pricing`) so users can buy credits |
-| Admin sidebar | Directory admin page (baseline §1) |
-| Do not delete | Any starter route files (apply.md Hide vs delete) |
-
-Use `config/directory.ts` for directory-specific settings:
+`config/directory.ts`, wired as `directory` in root `config.ts` (code reads
+`config.directory`):
 
 ```ts
 export const directoryConfig = {
-  pricing: {
-    listingCredits: 50,
-    featured: [
-      { days: 7, credits: 70 },
-      { days: 30, credits: 200 },
-    ],
-  },
+  pricing: { listingCredits: 50, featured: [{ days: 7, credits: 70 }, { days: 30, credits: 200 }] },
   adSlots: ["home_top", "home_sidebar"],
-  customFields: [
-    // { key, type: "text" | "url" | "select", label, required, options? }
-  ],
+  customFields: [] as { key: string; type: "text" | "url" | "select"; label: string; required?: boolean; options?: string[] }[],
 };
 ```
 
-Wire it into the root `config.ts` as `directory: directoryConfig` (`@config`
-resolves to `config.ts`, so code reads `config.directory`; there is no
-`@config/directory` alias). Also re-export it from `config/index.ts`.
+## Schema (fixed)
 
-## Landing (home = directory list)
-
-The directory **is** the home page. Do not keep the marketing landing at the
-locale root and put the list under `/directory`.
-
-- Replace `(root)/page.tsx` (and Nuxt / TanStack home equivalents) with the
-  directory list. The old hero / features / tech-stack / final-CTA blocks go
-  away from that file (or move to a non-linked route if you need them later).
-- Logo and "Home" always go to locale root.
-- Primary public CTA in the header / footer: Submit → `/submit`.
-- `apply.md` Landing contract (keep 8 feature cards, CTA → `/pricing`, etc.)
-  does **not** apply; this recipe overrides it.
-
-## Database contract
-
-New tables: Yes.
-
-Create the schema files exactly here:
-
-- `libs/database/schema/pg/directory.ts`
-- `libs/database/schema/sqlite/directory.ts`
-- `libs/database/schema/directory.ts` proxy, using the project's existing
-  `DB_DIALECT` selection pattern (`pg`, `sqlite`, `d1`)
-- schema barrel export so Drizzle sees the files
-
-The recipe adds exactly 6 tables: `dir_category`, `dir_tag`, `dir_entry`,
-`dir_entry_tag`, `dir_purchase`, and `dir_ad`. Do not modify existing tables. `dir_entry.submitter_id`
-references `user`; `dir_purchase.credit_transaction_id` references
-`credit_transaction`; nothing references `order`.
+Exactly 6 tables; copy verbatim into `libs/database/schema/{pg,sqlite}/directory.ts`
+plus the dialect proxy and exports (follow `credit-transaction`). Migration name
+`recipe_directory_v1` (baseline §3). D1 uses the SQLite schema.
 
 ### PG schema
 
 Use `timestamp(..., { withTimezone: true })` for time and `jsonb` for JSON.
-The imports below match the current starter (`./user`, `./credit-transaction`);
-if a fork moved those symbols, adjust only the import paths and keep table names, column names, constraints,
-and indexes fixed.
 
 ```ts
 import { sql } from "drizzle-orm";
@@ -403,194 +344,67 @@ export const dirAd = sqliteTable(
 );
 ```
 
-## Migration rules
+## Library contract
 
-Follow baseline §3 with migration name `recipe_directory_v1` (PG and SQLite /
-D1). `verify.ts` must fail on any `CREATE TABLE` / `CREATE INDEX` without
-`IF NOT EXISTS` and on any unwrapped `ADD CONSTRAINT`. Future changes:
-`recipe_directory_v2`.
-
-## Directory library contract
-
-Create `libs/directory/index.ts` and keep these public function signatures.
-The applying agent may choose internals, validation structure, and page wiring,
-but these signatures are fixed because `verify.ts` calls them.
+`libs/directory/index.ts` must export these (the shipped `verify.ts` calls
+them) plus `INSUFFICIENT_CREDITS` and errors carrying `.code`. Also used by
+`verify.ts` / `seed-demo.ts`: `getActiveAds(slotKey)`, `endAd(id)`.
 
 ```ts
-export async function submitEntry(input: {
-  userId: string;
-  name: string;
-  url: string;
-  tagline?: string;
-  categoryId?: string;
-  tagIds?: string[];
-  customFields?: Record<string, unknown>;
-  paid?: boolean;
-}): Promise<{ entryId: string; status: "pending" }>;
-
-export async function reviewEntry(input: {
-  entryId: string;
-  reviewerId: string;
-  action: "approve" | "reject";
-  reason?: string;
-}): Promise<void>;
-
-export async function purchaseFeatured(input: {
-  entryId: string;
-  userId: string;
-  days: number;
-}): Promise<{ purchaseId: string; featuredUntil: Date }>;
-
-export async function searchEntries(input: {
-  q?: string;
-  categorySlug?: string;
-  tagSlugs?: string[];
-  page?: number;
-  pageSize?: number;
-}): Promise<{ items: unknown[]; total: number }>;
+submitEntry({ userId, name, url, tagline?, categoryId?, tagIds?, customFields?, paid? }): Promise<{ entryId; status: "pending" }>
+reviewEntry({ entryId, reviewerId, action: "approve" | "reject", reason? }): Promise<void>
+purchaseFeatured({ entryId, userId, days }): Promise<{ purchaseId; featuredUntil: Date }>
+searchEntries({ q?, categorySlug?, tagSlugs?, page?, pageSize? }): Promise<{ items: unknown[]; total }>
 ```
 
-Implementation rules:
+- Enums: entry `status` pending / approved / rejected; `listing_type` free /
+  paid; purchase `kind` listing / featured; purchase `status` pending / active /
+  refunded.
+- Search: approved only; keyword on name + tagline (PG `ILIKE`, SQLite `LIKE`);
+  active featured (`featured_until > now`) first, then `published_at` desc.
+- `custom_fields`: display-only JSON validated against `config.customFields`.
+- Logos: `logo_url` text only, no upload in v1.
+- Ads: manual admin records; `slot_key` in `adSlots`; shown while
+  `starts_at <= now < ends_at`; take down = set `ends_at` to now.
 
-- Multi-statement writes: baseline §4 helpers only.
-- Debit errors: baseline §4 (`INSUFFICIENT_CREDITS` only for
-  `error === "Insufficient credits"`).
+## Purchases (baseline §4 flow, `metadata: { dirPurchaseId }`)
 
-- `status` values are only `pending`, `approved`, `rejected`.
-- `listing_type` values are only `free`, `paid`.
-- `dir_purchase.kind` values are only `listing`, `featured`.
-- `dir_purchase.status` values are only `pending`, `active`, `refunded`.
-- Search only approved entries. Keyword search matches `name` and `tagline`
-  (`ILIKE` on PG, `LIKE` on SQLite / D1). Category and tag filters are allowed.
-- Sort active featured entries first, then the rest by `published_at`
-  descending. Active means `featured_until` is later than now.
-- `custom_fields` is display-only JSON validated from
-  `config/directory.ts.customFields`. Do not create a custom-field table in v1.
+- Paid listing (`kind = listing`, `listingCredits`): insert entry
+  (`listing_type = paid`, pending) then the pending purchase; insufficient →
+  delete both. Admin reject → mark purchase `refunded`, refund. Step-3 failure →
+  baseline rule, then entry `status = rejected` (never delete: cascades the
+  purchase).
+- Featured (`kind = featured`, plan from `pricing.featured`, approved entries
+  only): step 3 stacks in SQL, PG `GREATEST(now(), COALESCE(featured_until,
+  now())) + make_interval(days => ?)`, SQLite / D1 `max(CAST(strftime('%s','now')
+  AS INTEGER), COALESCE(featured_until, 0)) + ? * 86400`.
 
-## Credits and purchases
+## Pages (paths after the locale root)
 
-Credits only (baseline §4); no direct item checkout. Both purchases use the
-baseline pending → consume → complete flow with `dir_purchase` as the purchase
-row and `metadata: { dirPurchaseId }`:
+| Page | Path | Next file (`apps/next-app/app/[lang]/`) |
+|------|------|------|
+| List: search, categories, featured first, active `home_top` ad | `/` | `(root)/page.tsx` |
+| Category | `/c/:slug` | `(root)/c/[slug]/page.tsx` |
+| Entry | `/e/:slug` | `(root)/e/[slug]/page.tsx` |
+| Submit (paid toggle; signed out = sign-in prompt) | `/submit` | `(root)/submit/page.tsx` |
+| Admin: review + manual ads | `/admin/directory` | `admin/directory/page.tsx` |
 
-- Paid listing (`kind = "listing"`, `credits = pricing.listingCredits`): insert
-  the `dir_entry` (`listing_type = "paid"`, `status = "pending"`) first, then
-  the pending purchase; on insufficient credits delete both. Step 3 only
-  activates the purchase. Rejected by admin: always
-  `addCredits({ type: "refund" })` and mark the purchase `refunded`.
-- Featured (`kind = "featured"`, plan from `pricing.featured`): only `approved`
-  entries. Step 3 also sets `featured_until = max(now, featured_until) + days`
-  in SQL so purchases stack: PG
-  `GREATEST(now(), COALESCE(featured_until, now())) + make_interval(days => ?)`,
-  SQLite / D1 (seconds) `max(CAST(strftime('%s','now') AS INTEGER),
-  COALESCE(featured_until, 0)) + ? * 86400`; read it back for the return value.
-- Step-3 failure: baseline rule (mark `refunded`, then refund); for a paid
-  listing then set the entry `status = "rejected"` (do not delete it: that
-  would cascade-delete the refunded purchase).
-- The partial unique index on `credit_transaction_id` prevents recording one
-  debit twice.
+Nuxt / TanStack: same paths under their route roots. Badges: featured
+`default`, pending `secondary`, rejected `destructive`, tags `outline`.
 
-Known gap inherited from credits: if a user later refunds a credit package,
-credits may only be clawed back to zero and already-active featured placement is
-not revoked. Assertions 5, 6 and 9 need the baseline §4 starter prerequisite.
+## Scripts (copy `directory/scripts/*` to `scripts/recipes/directory/`)
 
-## Ads
+| Script | Use |
+|--------|-----|
+| `verify.ts` | 11 library assertions (submit / review / insufficient / featured + stacking / ranking / paid refund / ads / user delete) + idempotent-DDL check; `--migrations-only` for SQLite |
+| `seed-demo.ts` | demo data for page checks (featured ChatPilot, pending FormDrop, active + expired ad) |
+| `acceptance.sh` | one full round per dialect on a clean clone |
+| `pg-migrations-only.sh` | PG migrations-only on an empty DB |
+| `d1-reapply.sh` | re-run the recipe SQL on local D1 |
+| `round.env.template` | minimal `.env` per round |
 
-Ads are manual admin records only. Do not build self-serve ad purchase or
-payment wiring.
+Page content check: with demo data, `/` and `/en` show ChatPilot with the
+featured badge and the active ad title, not the expired ad or FormDrop.
 
-- `slot_key` must be one of `config/directory.ts.adSlots`.
-- Show ads only when `starts_at <= now < ends_at`.
-- To take down an ad, admins set `ends_at` to now.
-
-## Verification script
-
-Create `scripts/recipes/directory/verify.ts` and run it from the repo root with
-`DB_DIALECT=<dialect> npx tsx scripts/recipes/directory/verify.ts`. The script
-must exercise the public `libs/directory` functions above plus direct test setup
-queries where needed, print PASS / FAIL per check, and exit non-zero on any
-failure.
-
-- Load `.env` and import `@libs/database` / `@libs/directory` with dynamic
-  `import()` after setting `DB_DIALECT`, because the dialect is fixed at module
-  load.
-- D1 binding: `getPlatformProxy({ configPath: "apps/tanstack-app/wrangler.jsonc",
-  persist: { path: "apps/tanstack-app/.wrangler/state/v3" } })` (baseline §5.1).
-- SQLite / D1 store timestamps in seconds. In assertion 7, wait at least 1 s
-  between approving E1 and E3 so `published_at` really differs.
-- Use unique ids / slugs per run and clean up, so the script can run twice.
-
-Run the baseline §5 rounds (SQLite, PG, D1, migrations-only for all 6 tables).
-`verify.ts` may implement migrations-only behind `--migrations-only`.
-Seed one admin, one normal user, two categories, and three tags, then run the
-required assertions:
-
-| # | Action | Assertion |
-|---|--------|-----------|
-| 1 | User A submits free E1 | Status is `pending`; search cannot find it |
-| 2 | Admin approves E1 | Status is `approved`; `published_at` is set; keyword, category, and tag searches can find it |
-| 3 | Admin rejects E2 with a reason | Status is `rejected`; `reject_reason` is set; search cannot find it |
-| 4 | A has zero credits and tries to feature E1 | Error is specifically insufficient balance (not any failure); `featured_until` unchanged; no new purchase (the pending row is removed) |
-| 5 | Add 200 credits to A, then feature E1 for 7 days | Expiry is about now + 7 days; one new `active` purchase linked to the debit; no `pending` purchase left; one credit debit; balance is correct |
-| 6 | Feature E1 for another 7 days | Expiry is about now + 14 days, proving stacking |
-| 7 | Create an approved, unfeatured E3 and search | E1 ranks before E3 while E1 is featured |
-| 8 | Move E1 `featured_until` into the past | E1 no longer receives featured ranking |
-| 9 | A pays to submit E4, then admin rejects it | Credits are fully refunded; purchase status becomes `refunded` |
-| 10 | Insert one active ad and one expired ad | Query by `slot_key` returns only the active ad |
-| 11 | Delete user A | E1 still exists with `submitter_id = NULL`; A's purchases are cascade-deleted |
-
-Passing line: all baseline §5 steps and all assertions for SQLite, PG and D1.
-Directory page content check (baseline §5.3): locale-root home HTML contains the featured
-entry with its featured badge and the active `home_top` ad title, not the
-expired ad. Screenshots: directory home and admin pages (baseline §5.5).
-
-## Pages
-
-Every targeted app ships these 5 pages + an admin sidebar entry (baseline §1,
-UI per baseline §2: featured = `Badge` default, status pending / rejected =
-`secondary` / `destructive`, tags = `outline`, logos via `Avatar` fallback).
-Header / footer: baseline §2b + Keep / hide / promote above.
-
-Public routes use **short paths at the locale root**; do not nest the list
-under `/directory`. "Path" is relative to the locale root: the default locale
-serves `/`, `/c/:slug`, ... (the starter also accepts `/zh-CN/...` for
-subpages), other locales `/en`, `/en/c/:slug`, ... Build links per baseline
-§2b.
-
-| Page | Path (after locale) | Next (`apps/next-app/app/[lang]/...`) | Nuxt (`apps/nuxt-app/pages/...`) | TanStack (`apps/tanstack-app/src/routes/$lang/...`) |
-|------|---------------------|------|------|------|
-| Home / list (search, featured first, active `home_top` ad, category nav) | `/` | `(root)/page.tsx` | `index.vue` | `(root)/index.tsx` |
-| Category | `/c/:slug` | `(root)/c/[slug]/page.tsx` | `c/[slug].vue` | `(root)/c/$slug.tsx` |
-| Entry detail | `/e/:slug` | `(root)/e/[slug]/page.tsx` | `e/[slug].vue` | `(root)/e/$slug.tsx` |
-| Submit (login required; paid toggle) | `/submit` | `(root)/submit/page.tsx` | `submit.vue` | `(root)/submit.tsx` |
-| Admin: entry review + manual ads | `/admin/directory` | `admin/directory/page.tsx` | `admin/directory/index.vue` (`layout: "admin"`) | `admin/directory.tsx` |
-
-Shared UI for the public pages may live next to them (e.g. Next
-`(root)/_directory-ui.tsx`). Links use these short paths, never
-`/directory/...`.
-
-## Free implementation area
-
-The applying agent decides:
-
-- API route shape vs. server actions, and form UX details.
-- SEO metadata and sitemap, reusing `libs/seo`.
-- Homepage copy in both locales, following `apply.md` locked-key rules.
-
-## Out of scope
-
-Direct per-item payment, order linkage, self-serve ad buying, view / click
-counts, nested categories, i18n category names, draft / archived entries, full
-text search, email notifications, website metadata scraping, Turnstile, and
-custom-field filtering.
-
-## Apply order
-
-1. Slots -> 2. Replace locale-root home with the directory list (Landing) ->
-3. Header **and footer** keep / hide / promote (baseline §2b) ->
-4. `config/directory.ts` -> 5. database schema + barrel exports ->
-6. migrations named `recipe_directory_v1` and made idempotent ->
-7. `libs/directory/index.ts` public contract -> 8. the 5 pages + admin sidebar
-entry in every targeted app (Pages) ->
-9. i18n packs + auth chrome -> 10. `scripts/recipes/directory/verify.ts` ->
-11. baseline §5 acceptance.
+Out of scope: per-item checkout, order linkage, self-serve ads, view counts,
+nested or translated categories, logo upload, email, scraping, captcha.

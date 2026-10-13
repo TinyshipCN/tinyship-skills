@@ -73,32 +73,37 @@ not mention this; do it anyway.
 
 ## Step 4: Apply the recipe
 
-Follow [references/apply.md](references/apply.md), then the recipe's Keep / Hide /
-CTA / example copy sections.
+Follow [references/apply.md](references/apply.md) and the recipe file. One order
+for every recipe (complex recipes also follow `recipes/_baseline.md`):
 
-Order:
-
-1. Landing contract (CTA hrefs + hide empty tech stack) — once per app; **skip** if the recipe replaces the home page (baseline §2b)
-2. Hide unused header **and footer** links (desktop **and** mobile). Do not delete route files
-3. Promote the product link to top-level nav when the recipe says so
-4. Rewrite `home.*` (and `home.footer`) in `libs/i18n/locales/en.ts` **and** `zh-CN.ts`; if the recipe replaces the home page, only `home.footer` and the recipe's own keys
-5. Rewrite auth chrome (`common.siteName`, `auth.metadata.signin` / `signup`, `auth.signup.title`) so those pages do not say TinyShip. Fill zh-CN `{pitch}` from `{pitch-zh}`. Do **not** edit `config.app.name` or logo files
-6. Hand off to `tinyship-ai` / `tinyship-payment` / `tinyship-feature` only if the recipe says so
-
-Copy rules are in apply.md. Keys stay locked. Use the recipe example pack as the draft.
+1. Home: Landing contract (CTA hrefs, hide empty tech stack) — or, if the recipe
+   replaces the home page, build the product home instead (baseline §2)
+2. Header **and footer**: hide / keep / promote per recipe (desktop + mobile);
+   never delete route files
+3. Complex recipes: config → schema + migration → library → pages + admin entry
+   → copy the recipe scripts
+4. i18n in `en.ts` **and** `zh-CN.ts`: `home.*` (home-replaced: only
+   `home.footer`) plus recipe keys; auth chrome (`common.siteName`,
+   `auth.metadata.signin` / `signup`, `auth.signup.title`) says `{product}`.
+   Do not edit `config.app.name` or logo files
+5. Hand off to `tinyship-ai` / `tinyship-payment` only if the recipe says so
 
 ## Step 5: Verify
 
-On the running app, check **`/`** (Chinese default) **and `/en`**:
+On the running app, at **`/`** (Chinese default) **and `/en`**:
 
-1. Hero title is the product pitch, not the starter boat line
-2. Home body has no TinyShip / three-framework / starter-kit wording
-3. Click the primary CTA — it must land on the recipe target
-4. Hidden demo / blog / pricing links are gone from **header and footer**
-5. The product page still opens if the recipe kept it
-6. `/signin` and `/signup` document titles use `{product}`, not TinyShip
-7. Logo text may still say TinyShip until `tinyship-brand` — report it, do not treat it as a recipe failure
+| Check | Marketing home | Home replaced (e.g. directory) |
+|-------|----------------|--------------------------------|
+| Home heading | product pitch, not the boat line | product page title + content |
+| Starter wording | no TinyShip / three-framework / starter kit on home | same |
+| Primary action | hero CTA lands on recipe target | header link lands on recipe target |
+| Hidden links | gone from header + footer | same |
+| Kept product page | still opens | every recipe page 200 (baseline §5) |
+| Auth titles | `/signin`, `/signup` use `{product}` | same |
 
-If the locale splice produced `}  validators:` on one line, fix that before verifying.
+Logo text may still say TinyShip until `tinyship-brand`; report it, not a
+failure. If a locale splice produced `}  validators:` on one line, fix it first.
+Complex recipes are done only after baseline §5.
 
-Tell the user what was shaped, what was only hidden, that the logo is brand's job, and which skill to run next (brand, AI keys, payment, deploy).
+Tell the user what was shaped, what was only hidden, that the logo is brand's
+job, and which skill to run next (brand, AI keys, payment, deploy).
