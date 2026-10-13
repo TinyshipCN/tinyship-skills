@@ -47,7 +47,7 @@ Referral positions, invite codes, separate email-capture table, countdown widget
 
 ## Apply order
 
-1. Slots → 2. Landing contract (primary `/signup`) → 3. Hide pricing + demos in header **and footer** → 4. i18n packs (see paste shape) → 5. Auth chrome + `header.auth.getStarted` → 6. Verify `/`, `/en`, `/signup` click, `/signin` title → 7. Tell the user a later recipe can turn this into image / chat / membership
+Follow `SKILL.md` Step 4 / Step 5. Recipe specifics: Landing primary → `/signup`; also rewrite `header.auth.getStarted`; afterwards tell the user a later recipe can turn this into image / chat / membership.
 
 ## Example copy — `en.ts` `home`
 

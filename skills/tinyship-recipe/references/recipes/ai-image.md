@@ -47,7 +47,7 @@ Persistent public gallery, community feed, new models, inpainting UI, teams.
 
 ## Apply order
 
-1. Slots → 2. Landing contract → 3. Header **and footer** hide/promote → 4. i18n packs (see paste shape) → 5. Auth chrome (`common.siteName`, `auth.metadata.signin` / `signup`) → 6. `tinyship-ai` if keys missing → 7. Verify `/`, `/en`, CTA click, footer, `/signin` title
+Follow `SKILL.md` Step 4 / Step 5. Recipe specifics: offer `tinyship-ai` if keys are missing.
 
 ## Example copy — `en.ts` `home`
 

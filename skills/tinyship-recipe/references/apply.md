@@ -25,6 +25,9 @@ Default public locale is Chinese at `/`; `/zh-CN` redirects. Verify `/` and `/en
 
 ## Landing contract (once per home file)
 
+Skip this section (and the `home.*` rewrite below, except `home.footer`) when
+the recipe replaces the home page; see `recipes/_baseline.md` §2 (keep `home.metadata` + `home.footer`).
+
 1. **Primary CTA href** is hardcoded to `/pricing` today (hero + final CTA).
    Change both to the recipe target (`/image-generate`, `/ai`, `/pricing`, `/signup`).
    Keep the secondary button on `#features` unless the recipe says otherwise.
@@ -140,5 +143,10 @@ If the recipe rewrites `header.auth.getStarted`, do it in **both** locales.
 
 - Missing image / chat / video keys → `tinyship-ai`
 - User wants Stripe (or another provider) configured now → `tinyship-payment`
-- Recipe needs a new table or page → `tinyship-feature` and both pg + sqlite schemas
+- Tables or pages outside a recipe contract → `tinyship-feature`
 - Do not run deploy from this skill
+
+## Complex recipes
+
+Recipes that add tables or pages also follow
+[recipes/_baseline.md](recipes/_baseline.md); it wins where the two differ.
