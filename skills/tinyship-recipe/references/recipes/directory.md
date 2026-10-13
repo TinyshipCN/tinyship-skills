@@ -667,20 +667,80 @@ Required assertions:
 
 Passing line: steps 3-10, the migration-only round (PG, SQLite), and all
 assertions must pass for SQLite, PG, and D1.
+
+Page acceptance (each targeted app, dev server running, demo data seeded):
+
+1. Every page in the Pages table returns HTTP 200 (admin page: 200 when
+   signed in as admin; signed-out may redirect to sign-in). Category and detail
+   use a seeded slug.
+2. Home HTML contains the featured entry (with its featured badge) and the
+   title of the active `home_top` ad, and not the expired ad.
+3. Hard-coded color check: grep the new page files and fail on
+   `(bg|text|border)-(red|green|blue|amber|yellow|gray|white|black)` or hex /
+   `rgb(` colors.
+4. Visual check: take a screenshot of the home page and the admin page (e.g.
+   Playwright, 1280x900) next to an existing starter page (`/[lang]/blog` and
+   `/[lang]/admin/users`) under the same theme, and confirm: same header /
+   sidebar, same background, card radius / border, type scale and primary
+   color; an entry without a logo shows its initial letter. Switch the theme
+   once and confirm the directory pages follow it.
 Build the D1 round from a fresh `apps/tanstack-app/.wrangler/state` and copy
 `.dev.vars.example` to `.dev.vars` first.
+
+## Pages and UI contract
+
+Which apps: the recipe targets exactly the apps chosen in `SKILL.md` Step 3
+(Scope). Every targeted app must ship all 5 pages below; an app that is not
+targeted gets none. "Keep Next + Nuxt + TanStack in sync" therefore means all
+three apps get all 5 pages; tinyship-cf means TanStack only. A recipe run is
+not complete if a targeted app lacks a page (`libs/directory` alone is not
+enough).
+
+| Page | Next (`apps/next-app/app/[lang]/...`) | Nuxt (`apps/nuxt-app/pages/...`, locale via i18n module) | TanStack (`apps/tanstack-app/src/routes/$lang/...`) |
+|------|------|------|------|
+| Home / list (search, featured first, active `home_top` ad, category nav) | `(root)/directory/page.tsx` | `directory/index.vue` | `(root)/directory/index.tsx` |
+| Category | `(root)/directory/c/[slug]/page.tsx` | `directory/c/[slug].vue` | `(root)/directory/c/$slug.tsx` |
+| Entry detail | `(root)/directory/e/[slug]/page.tsx` | `directory/e/[slug].vue` | `(root)/directory/e/$slug.tsx` |
+| Submit (login required; paid toggle) | `(root)/directory/submit/page.tsx` | `directory/submit.vue` | `(root)/directory/submit.tsx` |
+| Admin: entry review + manual ads | `admin/directory/page.tsx` | `admin/directory/index.vue` (`definePageMeta({ layout: "admin" })`) | `admin/directory.tsx` |
+
+Add the admin page to the app's admin sidebar (Next
+`apps/next-app/components/app-sidebar.tsx`, TanStack
+`apps/tanstack-app/src/components/admin/app-sidebar.tsx`, Nuxt
+`apps/nuxt-app/components/AppSidebar.vue`) with an i18n label.
+
+UI rules (pages must look like the starter's own pages):
+
+- Use only the starter's theme components. React apps (Next, TanStack):
+  `libs/react-shared/ui/*` — `card` (`Card`, `CardHeader`, `CardTitle`,
+  `CardDescription`, `CardContent`, `CardFooter`), `button` (`Button`,
+  `buttonVariants` for links), `badge` (`Badge`; featured = `default`, status
+  pending = `secondary`, rejected = `destructive`, tags = `outline`), `input`,
+  `label`, `select`, `switch`, `alert`, `avatar`, `table`, `separator`. Nuxt:
+  the same components under `apps/nuxt-app/components/ui/*`.
+- Colors only through theme tokens (`bg-background`, `bg-card`, `bg-muted`,
+  `text-foreground`, `text-muted-foreground`, `border-border`, `text-primary`,
+  `text-destructive`, ...) defined by `libs/ui/styles/themes/*.css`. No
+  hard-coded colors (`bg-red-*`, `text-white`, hex, `rgb()`); pages must follow
+  the theme switcher and dark mode.
+- Layout: public pages render inside the existing `(root)` layout (global
+  header / footer) and mirror the blog list page (`min-h-screen bg-background`,
+  `max-w-7xl` container, centered `text-4xl` title + `text-muted-foreground`
+  subtitle, card grid). Admin page renders inside the admin layout / sidebar
+  and mirrors `admin/users` (`container mx-auto py-10 px-5`, `text-2xl` title,
+  `Card` + `Table`).
+- Logo fallback: render logos with `Avatar` / `AvatarImage` and an
+  `AvatarFallback` showing the entry name's first letter, so a missing
+  `logo_url` or a failed image load still shows an initial-letter avatar.
+- Copy goes through the app's i18n packs (`apply.md` locked-key rules).
 
 ## Free implementation area
 
 The applying agent decides:
 
-- Public pages: home, category, tag, detail, search results, submit form,
-  "my submissions".
-- Admin pages: review queue, category / tag CRUD, manual ad CRUD.
-- API route shape and form UX.
+- API route shape vs. server actions, and form UX details.
 - SEO metadata and sitemap, reusing `libs/seo`.
 - Homepage copy in both locales, following `apply.md` locked-key rules.
-- Which app to modify, using `SKILL.md` Step 3 scope question.
 
 ## Out of scope
 
@@ -694,6 +754,7 @@ custom-field filtering.
 1. Slots -> 2. Landing contract -> 3. Header **and footer** hide/promote ->
 4. `config/directory.ts` -> 5. database schema + barrel exports ->
 6. migrations named `recipe_directory_v1` and made idempotent ->
-7. `libs/directory/index.ts` public contract -> 8. chosen app pages / admin ->
+7. `libs/directory/index.ts` public contract -> 8. the 5 pages + admin sidebar
+entry in every targeted app (Pages and UI contract) ->
 9. i18n packs + auth chrome -> 10. `scripts/recipes/directory/verify.ts` ->
 11. verify SQLite, PG, and D1.
