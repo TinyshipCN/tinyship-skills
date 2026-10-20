@@ -45,6 +45,18 @@ Optional: soften pricing page metadata so it talks about image credits, not "sta
 
 Persistent public gallery, community feed, new models, inpainting UI, teams.
 
+## Optional extensions
+
+Do **not** build these during apply. List them in the Step 5 closing report;
+build one only if the user asks.
+
+- **My images / history** — unlike video, the starter has no image-task table or
+  list API; this needs a new table + migration + list endpoint first.
+- **Failure copy on generate page** — when a run fails, say credits were
+  returned if the billing path already returns them.
+- **Admin image list** — only after a history table exists; follow an existing
+  admin page pattern.
+
 ## Apply order
 
 Follow `SKILL.md` Step 4 / Step 5. Recipe specifics: offer `tinyship-ai` if keys are missing.

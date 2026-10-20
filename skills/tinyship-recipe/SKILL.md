@@ -89,6 +89,10 @@ for every recipe (complex recipes also follow `references/recipes/_baseline.md`)
    Do not edit `config.app.name` or logo files
 5. Hand off to `tinyship-ai` / `tinyship-payment` only if the recipe says so
 
+**Optional extensions:** if the recipe has an "Optional extensions" section,
+do **not** build any of them during Step 4. Do not ask about them in Step 3.
+They are suggestions for after Step 5, not part of apply.
+
 ## Step 5: Verify
 
 On the running app, at **`/`** (Chinese default) **and `/en`**:
@@ -108,3 +112,7 @@ Complex recipes are done only after baseline §5.
 
 Tell the user what was shaped, what was only hidden, that the logo is brand's
 job, and which skill to run next (brand, AI keys, payment, deploy).
+
+If the recipe has an "Optional extensions" section, list those items in the
+closing report as suggestions (one line each). Build one only if the user asks
+for it; never start them on your own.

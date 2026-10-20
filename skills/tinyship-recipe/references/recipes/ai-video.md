@@ -63,8 +63,21 @@ Optional: `pricing.metadata.title` → `{product} - Pricing` / `{product} - 定�
 
 ## Out of scope
 
-My videos / history page, task detail page, admin video page, public gallery,
-image-to-video upload UI, new models, deleting tasks, teams.
+Public gallery, image-to-video upload UI, new models, deleting tasks, teams.
+
+## Optional extensions
+
+Do **not** build these during apply. List them in the Step 5 closing report;
+build one only if the user asks.
+
+- **My videos** (`/videos`) — list from existing `GET /api/video-generate/tasks`
+  (status, cost, created time; play `resultUrl` inline when succeeded).
+- **Task detail** (`/videos/:id`) — poll `GET /api/video-generate/status?taskId=`;
+  show error and「已退回积分」/ "Credits returned" when `refunded`.
+- **Admin video list** — read `ai_video_task` (join user), follow an existing
+  admin page pattern.
+- **Failure copy on generate page** — when status is failed, say credits were
+  returned (the balance already comes back; the page just does not say so).
 
 ## Apply order
 
