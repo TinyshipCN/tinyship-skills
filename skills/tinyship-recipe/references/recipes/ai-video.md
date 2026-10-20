@@ -33,8 +33,17 @@ video returns its credits. Missing → stop and tell the user to update the star
 | Keep in header | Pricing |
 | Do not delete | Any route files |
 
-Rewrite `header.demos.aiVideo` (`title` + `description`) in both locales so it no longer says "demo" or
-"extensible design". Leave other `header.demos.*` strings; they are unused once hidden.
+Rewrite these in both locales. Leave other `header.demos.*` strings; they are unused once hidden.
+
+| Key | `en.ts` | `zh-CN.ts` |
+|-----|---------|------------|
+| `header.demos.aiVideo.title` | `Generate` | `生成视频` |
+| `header.demos.aiVideo.description` | `Turn a prompt into a short video. Sign in required.` | `一句话生成短视频，需要登录。` |
+| `ai.video.metadata.title` | `{product} - Generate video` | `{product} - 生成视频` |
+
+Footer: replace the Blog link with the same `/video-generate` link (label
+`header.demos.aiVideo.title`); keep Pricing and the About / Contact / Privacy /
+Terms links.
 
 ## Landing
 
@@ -47,7 +56,8 @@ Rewrite `header.demos.aiVideo` (`title` + `description`) in both locales so it n
 
 Do not invent plans. Existing per-model costs in `config/credits.ts`
 `fixedConsumption.aiVideo` and the models in `config/aiVideo.ts` stay.
-Optional: soften pricing page metadata so it talks about video credits, not "starter kit".
+Optional: `pricing.metadata.title` → `{product} - Pricing` / `{product} - 定价`,
+`description` → `Buy credits for AI video generation.` / `购买积分，用于 AI 视频生成。`
 
 ## Out of scope
 
@@ -180,7 +190,7 @@ home: {
     titlePrefix: "一句话生成一段",
     titleHighlight: "视频",
     titleSuffix: "",
-    subtitle: "{pitch} 登录后消耗积分，在线播放并下载。",
+    subtitle: "{pitch}登录后消耗积分，在线播放并下载。",
     buttons: { purchase: "{cta}", demo: "看看怎么用" },
     features: {
       lifetime: "按积分付费，生成的视频归你",

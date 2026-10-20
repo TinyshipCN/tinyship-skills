@@ -11,7 +11,7 @@ After template detection:
 
 | Surface | Next | Nuxt | TanStack |
 |---------|------|------|----------|
-| Home | `apps/next-app/app/[lang]/(root)/page.tsx` | `apps/nuxt-app/pages/index.vue` | `apps/tanstack-app/src/routes/$lang/(root)/index.tsx` |
+| Home | `apps/next-app/app/[lang]/(root)/home-page.tsx` (`page.tsx` only renders it) | `apps/nuxt-app/pages/index.vue` | `apps/tanstack-app/src/routes/$lang/(root)/index.tsx` |
 | Header | `apps/next-app/components/global-header.tsx` | `apps/nuxt-app/components/GlobalHeader.vue` | `apps/tanstack-app/src/components/global-header.tsx` |
 | Footer | `apps/next-app/components/site-footer.tsx` | `apps/nuxt-app/components/SiteFooter.vue` | `apps/tanstack-app/src/components/site-footer.tsx` |
 
@@ -28,7 +28,9 @@ Default public locale is Chinese at `/`; `/zh-CN` redirects. Verify `/` and `/en
 Skip this section (and the `home.*` rewrite below, except `home.footer`) when
 the recipe replaces the home page; see `recipes/_baseline.md` §2 (keep `home.metadata` + `home.footer`).
 
-1. **Primary CTA href** is hardcoded to `/pricing` today (hero + final CTA).
+1. **Primary CTA href** is hardcoded to the pricing page today (hero + final CTA),
+   locale-prefixed: Next `/${currentLocale}/pricing`, Nuxt `localePath('/pricing')`,
+   TanStack `/$lang/pricing`. Keep that pattern and swap only the path.
    Change both to the recipe target (`/image-generate`, `/ai`, `/pricing`, `/signup`).
    Keep the secondary button on `#features` unless the recipe says otherwise.
 2. **Tech stack chips** are starter marketing. If `home.features.techStack.items`
@@ -42,7 +44,8 @@ the recipe replaces the home page; see `recipes/_baseline.md` §2 (keep `home.me
 
 - Hide = comment out or remove the **header link** (desktop and mobile) **and**
   the matching links in `site-footer` / `SiteFooter`. Footer currently has Blog
-  + Pricing; apply the same keep/hide/promote as the header.
+  + Pricing plus About / Contact / Privacy / Terms (`sitePages`); apply the same
+  keep/hide/promote as the header to Blog + Pricing and keep the `sitePages` links.
 - If every footer link is hidden, **omit the `<nav>` element**. Do not leave
   an empty `<nav />`.
 - Never delete `page.tsx` / `pages/*.vue` / TanStack route files for unused demos.
@@ -120,7 +123,8 @@ If a first replace leaves leftover starter `hero` / `features` keys, the splice 
 ## Auth and chrome (not brand)
 
 This skill does **not** edit `config.app.name` or logo files. The header logo
-text stays `TinyShip` until `tinyship-brand`. That is expected; tell the user.
+text, `og:site_name` and the JSON-LD organization name stay `TinyShip` until
+`tinyship-brand` (they read `config.app.name`). That is expected; tell the user.
 
 Do rewrite these i18n strings so public auth pages do not say TinyShip:
 
