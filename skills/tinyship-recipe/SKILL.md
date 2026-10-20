@@ -2,10 +2,10 @@
 name: tinyship-recipe
 description: >-
   Shape a TinyShip starter into a specific SaaS product using playbook recipes
-  (AI image, AI chat, membership, waitlist, directory). Orchestrates setup when needed,
+  (AI image, AI video, AI chat, membership, waitlist, directory). Orchestrates setup when needed,
   then hides demo nav, rewrites landing copy, and points CTAs at the product.
   Use when the user asks to "use a recipe", "SaaS template", "make an AI image
-  app", "GPT wrapper", "membership site", "waitlist", "用 TinyShip 做",
+  app", "AI video app", "GPT wrapper", "membership site", "waitlist", "用 TinyShip 做",
   or "快速创建模版".
 ---
 
@@ -45,7 +45,7 @@ If unsure, ask: **Is the app already running locally?**
 **⛔ STOP — ask unless the user already named the product.**
 
 Read [references/catalog.md](references/catalog.md) and present the first-batch
-options. If they said "AI 生图站", confirm `ai-image` and continue.
+options. If they said "AI 生图站", confirm `ai-image` and continue ("AI 视频站" → `ai-video`).
 
 Then read **only** that recipe file under `references/recipes/`.
 
