@@ -40,6 +40,8 @@ Rewrite these in both locales. Leave other `header.demos.*` strings; they are un
 | `header.demos.aiVideo.title` | `Generate` | `生成视频` |
 | `header.demos.aiVideo.description` | `Turn a prompt into a short video. Sign in required.` | `一句话生成短视频，需要登录。` |
 | `ai.video.metadata.title` | `{product} - Generate video` | `{product} - 生成视频` |
+| `ai.video.title` | `Generate a video` | `生成视频` |
+| `ai.video.description` | `Pick a model, write a prompt. Failed videos return their credits.` | `选模型，写提示词。生成失败会退回积分。` |
 
 Footer: replace the Blog link with the same `/video-generate` link (label
 `header.demos.aiVideo.title`); keep Pricing and the About / Contact / Privacy /
