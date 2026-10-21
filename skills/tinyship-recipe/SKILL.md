@@ -2,10 +2,10 @@
 name: tinyship-recipe
 description: >-
   Shape a TinyShip starter into a specific SaaS product using playbook recipes
-  (AI image, AI chat, membership, waitlist, directory). Orchestrates setup when needed,
+  (AI image, AI video, AI chat, membership, waitlist, directory). Orchestrates setup when needed,
   then hides demo nav, rewrites landing copy, and points CTAs at the product.
   Use when the user asks to "use a recipe", "SaaS template", "make an AI image
-  app", "GPT wrapper", "membership site", "waitlist", "用 TinyShip 做",
+  app", "AI video app", "GPT wrapper", "membership site", "waitlist", "用 TinyShip 做",
   or "快速创建模版".
 ---
 
@@ -45,7 +45,7 @@ If unsure, ask: **Is the app already running locally?**
 **⛔ STOP — ask unless the user already named the product.**
 
 Read [references/catalog.md](references/catalog.md) and present the first-batch
-options. If they said "AI 生图站", confirm `ai-image` and continue.
+options. If they said "AI 生图站", confirm `ai-image` and continue ("AI 视频站" → `ai-video`).
 
 Then read **only** that recipe file under `references/recipes/`.
 
@@ -89,6 +89,10 @@ for every recipe (complex recipes also follow `references/recipes/_baseline.md`)
    Do not edit `config.app.name` or logo files
 5. Hand off to `tinyship-ai` / `tinyship-payment` only if the recipe says so
 
+**Optional extensions:** if the recipe has an "Optional extensions" section,
+do **not** build any of them during Step 4. Do not ask about them in Step 3.
+They are suggestions for after Step 5, not part of apply.
+
 ## Step 5: Verify
 
 On the running app, at **`/`** (Chinese default) **and `/en`**:
@@ -108,3 +112,7 @@ Complex recipes are done only after baseline §5.
 
 Tell the user what was shaped, what was only hidden, that the logo is brand's
 job, and which skill to run next (brand, AI keys, payment, deploy).
+
+If the recipe has an "Optional extensions" section, list those items in the
+closing report as suggestions (one line each). Build one only if the user asks
+for it; never start them on your own.

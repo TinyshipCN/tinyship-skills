@@ -25,7 +25,7 @@ npx skills add TinyshipCN/tinyship-skills --list
 
 | Skill | Description |
 |-------|-------------|
-| **tinyship-recipe** | Product playbooks — shape the starter into AI image, AI chat, membership, or waitlist |
+| **tinyship-recipe** | Product playbooks — shape the starter into AI image, AI video, AI chat, membership, or waitlist |
 | **tinyship-setup** | Project initialization wizard — env config, database, framework selection, and cleanup of unused frameworks |
 | **tinyship-brand** | Brand customization — app name, logo, color theme, i18n defaults |
 | **tinyship-auth** | Auth provider setup — Google, GitHub, WeChat, SMS, email/password |
