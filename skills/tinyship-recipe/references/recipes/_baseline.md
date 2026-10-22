@@ -54,7 +54,10 @@ When the locale root becomes the product page:
   (sync, `.run()/.get()/.all()`, no `await`); D1 `runD1Batch` /
   `runNativeD1Batch`. Never `db.transaction()` or hand-rolled `BEGIN`.
 - Credits only via `creditService.consumeCredits` / `addCredits`; integers;
-  never touch payment fulfillment. `consumeCredits` returns `{ success, error }`.
+  never touch payment fulfillment (`consumeCredits` returns `{ success, error }`).
+  **Exception:** the `digital-product` recipe may add `libs/payment/recipe-hooks.ts`
+  and wire only `claimOrderPaid`, `fulfillOneTimeSubscription`, and
+  `fulfillOrderRefund` — never provider files; see that recipe.
 - Paid flow **pending → consume → complete**:
   1. insert purchase `status = pending`;
   2. consume with the purchase id in metadata; only
@@ -67,6 +70,12 @@ When the locale root becomes the product page:
   finish, else delete) and reports `refunded` rows lacking a refund entry.
 
 ## 5. Acceptance (outcomes; recipe scripts run the fixed parts)
+
+**Never run a dev server or any long-running command in the foreground** (it
+never returns and the session hangs). Start servers in the background
+(`nohup … > /tmp/<app>.log 2>&1 &`), poll with `curl` until ready, and kill
+them (and free the port) when the check is done. Cap long builds with
+`timeout`.
 
 Done only when all hold:
 
