@@ -199,11 +199,12 @@ async function main() {
   const fileId = `vfile_${run}`;
   const orderBound = `vord_bound_${run}`;
   const orderUnbound = `vord_unbound_${run}`;
+  const orderInactive = `vord_inactive_${run}`;
   const idsToClean = {
     users: [buyer, other],
     products: [productId],
     files: [fileId],
-    orders: [orderBound, orderUnbound],
+    orders: [orderBound, orderUnbound, orderInactive],
   };
 
   async function cleanup() {
@@ -388,6 +389,39 @@ async function main() {
     check("8 listActiveProducts includes verify product", active.some((p: any) => p.id === productId));
     const bySlug = await dp.getProductBySlug(`slug-${run}`);
     check("8 getProductBySlug returns files", !!bySlug && Array.isArray(bySlug.files) && bySlug.files.length >= 1, bySlug);
+    const bound = await dp.listBoundPlanIds();
+    check("8 listBoundPlanIds includes bound plan", Array.isArray(bound) && bound.includes(planA), bound);
+
+    // 9 — deactivated product: hidden publicly, but paid orders still grant and skip membership
+    await d.update(dpProduct).set({ isActive: false }).where(eq(dpProduct.id, productId));
+    check("9 inactive hidden from catalog", !(await dp.listActiveProducts()).some((p: any) => p.id === productId));
+    check("9 inactive slug -> null", (await dp.getProductBySlug(`slug-${run}`)) === null);
+    check("9 findProductByPlanId ignores is_active", (await dp.findProductByPlanId(planA))?.id === productId);
+    await d.insert(order).values({
+      id: orderInactive,
+      userId: buyer,
+      amount: "29.00",
+      currency: "USD",
+      planId: planA,
+      status: orderStatus.PENDING,
+      provider: "stripe",
+      providerOrderId: null,
+      metadata: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+    await claimOrderPaid({ orderId: orderInactive });
+    const p9 = await purchasesForOrder(orderInactive);
+    check("9 inactive product: paid order still grants", p9.length === 1 && p9[0].status === "active", p9);
+    const sub9 = await subCount(buyer, planA);
+    await fulfillOneTimeSubscription({
+      userId: buyer,
+      planId: planA,
+      months: 1,
+      metadata: { orderId: orderInactive },
+      orderId: orderInactive,
+    } as any);
+    check("9 inactive product: still no subscription", (await subCount(buyer, planA)) === sub9);
   }
 
   const exec = async () => {

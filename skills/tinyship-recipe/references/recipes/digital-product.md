@@ -87,6 +87,15 @@ export async function onDigitalProductOrderRefunded(input: {
 Return `false` from `onDigitalProductOrderPaid` when no product is bound to
 `planId` (membership path continues).
 
+**Bound = a `dp_product` row has this `pricing_plan_id`, whether `is_active`
+or not.** `is_active` only hides a product from the catalog / detail page; a
+paid order for a deactivated product still grants and still skips membership.
+
+**Injected deps:** these three functions take an optional `deps` argument that
+starter unit tests fill with in-memory fixtures. Call the hooks **only when
+`deps` is undefined** (the real-DB path), so existing unit tests stay green
+without recipe tables. `verify.ts` uses the real path and covers the hooks.
+
 ### Wire points
 
 **`claimOrderPaid`** — after the function resolves to `claimed` **or**
@@ -108,8 +117,8 @@ write:
 
 1. Resolve `orderId` from `input.orderId` (add optional field) **or**
    `input.metadata?.orderId` / `input.metadata?.lastOrderId` (string).
-2. Look up product by `planId` (via hook / lib). If unbound → existing
-   membership logic unchanged.
+2. Look up product by `planId` with `findProductByPlanId` (ignores
+   `is_active`). If unbound → existing membership logic unchanged.
 3. If bound: call `onDigitalProductOrderPaid` when `orderId` is known; if
    `orderId` is missing, still **skip membership** (never insert/extend
    `subscription` for a bound plan) and return a non-membership result, e.g.
@@ -361,16 +370,17 @@ grantPurchaseForOrder({ orderId, userId, planId }): Promise<{
   purchaseId?: string;
   productId?: string;
 }>
-// Look up active product by pricing_plan_id. Unbound → { granted:false, alreadyGranted:false }.
+// Look up product by pricing_plan_id, IGNORING is_active. Unbound → { granted:false, alreadyGranted:false }.
 // Bound → INSERT purchase status=active ON CONFLICT (order_id) DO NOTHING (idempotent).
 // Do not touch credits or subscription.
 
 revokePurchaseForOrder({ orderId, reason? }): Promise<{ revoked: boolean }>
 // Set status=revoked, revoked_at=now, revoked_reason. Idempotent if already revoked / missing.
 
-findProductByPlanId(planId): Promise<DpProduct | null>
+findProductByPlanId(planId): Promise<DpProduct | null>  // ignores is_active
+listBoundPlanIds(): Promise<string[]>  // every dp_product.pricing_plan_id (for /pricing filter)
 listActiveProducts(): Promise<DpProduct[]>  // is_active, sort_order asc
-getProductBySlug(slug): Promise<(DpProduct & { files: DpFile[] }) | null>  // active only for public
+getProductBySlug(slug): Promise<(DpProduct & { files: DpFile[] }) | null>  // active only (public); else null
 listFilesForProduct(productId): Promise<DpFile[]>
 listPurchasesForUser(userId): Promise<Array<{ purchase: DpPurchase; product: DpProduct }>>
 hasActivePurchase({ userId, productId }): Promise<boolean>
@@ -395,6 +405,20 @@ addFile / removeFile
 
 Nuxt / TanStack: same paths under their route roots.
 
+**Data loading per framework:**
+
+- Next: server components call `@libs/digital-product` directly.
+- TanStack: `createServerFn` loaders (server-only module).
+- **Nuxt: pages and components never import `@libs/database` or
+  `@libs/digital-product`** (they leak into the client bundle and `build:nuxt`
+  fails). Add `server/api/digital-product/*` routes (catalog, product by slug,
+  purchases) and read them with `useFetch`, like the admin pages do.
+
+**Unknown or inactive slug → real HTTP 404** in all three, following each
+app's `blog/[slug]` page: Next `notFound()`, Nuxt
+`throw createError({ statusCode: 404, fatal: true })`, TanStack
+`throw notFound()` in the loader. A 200 with "not available" copy fails.
+
 **Buy button:** signed-out → sign-in prompt. Signed-in → call existing
 `POST /api/payment/initiate` with `{ planId: product.pricingPlanId, provider }`
 (same client pattern as the pricing page). Do **not** invent a new checkout
@@ -406,10 +430,12 @@ claim path grants entitlement).
 redirects (or returns `{ url }`). Do not expose raw `storage_key` to the
 client.
 
-**Pricing page:** leave the route file; it is hidden from nav. Optionally
-filter bound plan ids out of the pricing page data load so they do not appear
-as "membership" if someone opens `/pricing` directly — do **not** change
-`libs/pricing` core; filter in the page/loader only.
+**Pricing page (required):** leave the route file; it is hidden from nav. In
+every targeted app's pricing plans API (`apps/next-app/app/api/pricing/plans/route.ts`,
+`apps/nuxt-app/server/api/pricing/plans.get.ts`,
+`apps/tanstack-app/src/routes/api/pricing/plans.ts`) drop plans whose id is in
+`listBoundPlanIds()`, so product plans never show as membership on `/pricing`.
+Do **not** change `libs/pricing` core. `acceptance.sh` checks this.
 
 ## Apply order (~4 steps)
 
@@ -423,16 +449,19 @@ Follow `SKILL.md` Step 4 / `_baseline.md`. Recipe specifics:
    (baseline §3).
 3. **Library + payment hooks + pages** — `libs/digital-product`;
    `libs/payment/recipe-hooks.ts` + 3 wire points; catalog / detail / purchases /
-   admin / download API.
-4. **i18n + scripts** — en + zh-CN (enum labels, empty/error states); copy
-   `digital-product/scripts/*` → `scripts/recipes/digital-product/`.
+   admin / download API; `/pricing` filter.
+4. **i18n + scripts** — en + zh-CN (enum labels, empty/error states); auth
+   chrome renames **only** `common.siteName`, `auth.metadata.signin`,
+   `auth.metadata.signup`, `auth.signup.title` (leave forgot / reset / phone /
+   WeChat titles); copy `digital-product/scripts/*` →
+   `scripts/recipes/digital-product/`.
 
 ## Scripts (copy `digital-product/scripts/*` to `scripts/recipes/digital-product/`)
 
 | Script | Use |
 |--------|-----|
 | `verify.ts` | Library + payment-hook assertions with **fake orders** (no live providers) + idempotent-DDL; `--migrations-only` for SQLite |
-| `seed-demo.ts` | After starter `pnpm db:seed` / `db:seed:sqlite`; demo products + `external_url` files + `pricing_plan` rows |
+| `seed-demo.ts` | After starter `pnpm db:seed` / `db:seed:sqlite`; demo products + `external_url` files + `pricing_plan` rows + one paid fake order (user@example.com → Starter Kit) through `claimOrderPaid`, so it needs the hooks wired |
 | `acceptance.sh` | One full round per dialect on a clean clone |
 | `pg-migrations-only.sh` | PG migrations-only on an empty DB |
 | `d1-reapply.sh` | Re-run the recipe SQL on local D1 |
@@ -453,14 +482,20 @@ PG scripts need a user-supplied URL of an **empty** database (`PGURL` / first ar
    refund no-op.
 7. Unbound `one_time` plan B → grant returns unbound; `fulfillOneTimeSubscription`
    **does** create/extend membership (starter membership path unbroken).
-8. Migrations-only shape + dual `db:generate` "No schema changes" (via
-   acceptance).
+8. Catalog helpers; `listBoundPlanIds` includes plan A.
+9. Deactivated product: hidden from catalog / slug, but a new paid order still
+   grants and still creates no `subscription`.
+10. Migrations-only shape + dual `db:generate` "No schema changes" (via
+   acceptance); acceptance also greps the `/pricing` filter and (Nuxt) that
+   pages / components do not import `@libs/database` / `@libs/digital-product`.
 
 ### Page content check (with demo seed)
 
 `/` and `/en` show demo product names (e.g. **Starter Kit**, **Icon Pack**);
-inactive products hidden; `/p/starter-kit` shows Buy; signed-in buyer with a
-seeded purchase sees download on `/dashboard/purchases`.
+inactive products hidden and `/en/p/retired-pack` returns **404**;
+`/p/starter-kit` shows Buy; `user@example.com` / `user123456` (purchase seeded
+by `seed-demo.ts`) sees Starter Kit + Download on `/dashboard/purchases`, the
+download API redirects for that file and returns 403 for Icon Pack.
 
 ## Optional extensions
 

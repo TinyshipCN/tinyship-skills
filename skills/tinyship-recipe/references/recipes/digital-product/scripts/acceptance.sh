@@ -41,6 +41,11 @@ step "verify.ts typecheck" npx tsc -p tsconfig.verify.json
 step "verify.ts" env DB_DIALECT=$R npx tsx scripts/recipes/digital-product/verify.ts
 step "verify.ts second run" env DB_DIALECT=$R npx tsx scripts/recipes/digital-product/verify.ts
 [ $R = sqlite ] && step "migrations-only (sqlite)" env DB_DIALECT=sqlite npx tsx scripts/recipes/digital-product/verify.ts --migrations-only
+# /pricing must hide bound plans in every targeted app (cheap static check)
+pricing_api(){ case $1 in next) echo apps/next-app/app/api/pricing/plans/route.ts;; nuxt) echo apps/nuxt-app/server/api/pricing/plans.get.ts;; tanstack) echo apps/tanstack-app/src/routes/api/pricing/plans.ts;; esac; }
+for a in $APPS; do step "pricing API filters bound plans:$a" grep -q listBoundPlanIds "$(pricing_api $a)"; done
+# Nuxt pages/components must not import server libs (leaks into the client bundle)
+case " $APPS " in *" nuxt "*) step "nuxt client code imports no server libs" bash -c '! grep -rnE "(from|import\() *[\"'"'"']@libs/(database|digital-product)[\"'"'"']" apps/nuxt-app/pages apps/nuxt-app/components apps/nuxt-app/layouts apps/nuxt-app/composables 2>/dev/null | grep -v "import type"' ;; esac
 for a in $APPS; do
   [ $R = d1 ] && [ $a != tanstack ] && continue   # D1 round: verify.ts only unless TanStack is targeted
   step "typecheck:$a" pnpm typecheck:$a

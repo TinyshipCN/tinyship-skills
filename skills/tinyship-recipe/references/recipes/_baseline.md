@@ -71,6 +71,12 @@ When the locale root becomes the product page:
 
 ## 5. Acceptance (outcomes; recipe scripts run the fixed parts)
 
+**Never run a dev server or any long-running command in the foreground** (it
+never returns and the session hangs). Start servers in the background
+(`nohup … > /tmp/<app>.log 2>&1 &`), poll with `curl` until ready, and kill
+them (and free the port) when the check is done. Cap long builds with
+`timeout`.
+
 Done only when all hold:
 
 1. `acceptance.sh` passes on a clean clone for SQLite, PG (fresh DB) and D1:

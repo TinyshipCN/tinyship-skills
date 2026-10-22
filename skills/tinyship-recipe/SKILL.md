@@ -95,7 +95,8 @@ They are suggestions for after Step 5, not part of apply.
 
 ## Step 5: Verify
 
-On the running app, at **`/`** (Chinese default) **and `/en`**:
+Start the app in the background (never in the foreground; kill it when
+done), then on the running app, at **`/`** (Chinese default) **and `/en`**:
 
 | Check | Marketing home | Home replaced (e.g. directory) |
 |-------|----------------|--------------------------------|

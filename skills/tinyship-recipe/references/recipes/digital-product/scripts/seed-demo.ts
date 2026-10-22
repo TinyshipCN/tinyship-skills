@@ -3,7 +3,9 @@
  * (`pnpm db:seed` / `db:seed:sqlite`, which creates admin@example.com and user@example.com):
  *   DB_DIALECT=<pg|sqlite> npx tsx scripts/recipes/digital-product/seed-demo.ts
  * Creates: 2 active one_time pricing_plan rows, 2 active products (Starter Kit,
- * Icon Pack) + 1 inactive product, each active product one file via external_url.
+ * Icon Pack) + 1 inactive product, each active product one file via external_url,
+ * and one paid fake order (user@example.com → Starter Kit) through claimOrderPaid,
+ * which grants the purchase via the recipe payment hook.
  * Prefers PRICING_MODE=dynamic so plans are inserted into pricing_plan.
  */
 import "dotenv/config";
@@ -15,7 +17,10 @@ async function main() {
     pricingPlan,
     dpProduct,
     dpFile,
-  } = await import("@libs/database");
+    order,
+    orderStatus,
+  } = (await import("@libs/database")) as any;
+  const { claimOrderPaid } = await import("@libs/payment/fulfillment");
   const { eq } = await import("drizzle-orm");
   const d = db as any;
   const [admin] = await d.select().from(user).where(eq(user.email, "admin@example.com"));
@@ -163,6 +168,29 @@ async function main() {
         updatedAt: now,
       })
       .onConflictDoNothing();
+  }
+
+  // One paid purchase for the demo buyer: fake pending order → claimOrderPaid → hook grants.
+  const demoOrderId = "demo_dp_order_starter";
+  await d
+    .insert(order)
+    .values({
+      id: demoOrderId,
+      userId: u.id,
+      amount: "29.00",
+      currency: "USD",
+      planId: "demo_dp_plan_starter",
+      status: orderStatus.PENDING,
+      provider: "stripe",
+      providerOrderId: null,
+      metadata: {},
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoNothing();
+  const claim = await claimOrderPaid({ orderId: demoOrderId });
+  if (claim.status !== "claimed" && claim.status !== "already_paid") {
+    throw new Error(`demo order not paid: ${claim.status}`);
   }
 
   console.log("demo seeded");
