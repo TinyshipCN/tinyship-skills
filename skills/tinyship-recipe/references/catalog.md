@@ -13,13 +13,15 @@ First batch is implemented. Later rows are listed so the agent can say
 | `membership-content` | Paid membership / posts | Uses `/blog` + `/pricing` + `/premium-features` | No | `/pricing` |
 | `waitlist` | Pre-launch signup | Auth only; hide pay and demos | No | `/signup` |
 | `directory` | Directory / navigation site | New listing schema + credits for paid listing / featured | Yes | `/submit` |
+| `digital-product` | Digital product store | Multi-product catalog; real-money `one_time` unlock + download (payment hooks exception) | Yes | `/p/:slug` |
 
 Recipe files: [recipes/ai-image.md](recipes/ai-image.md),
 [recipes/ai-video.md](recipes/ai-video.md),
 [recipes/ai-chat.md](recipes/ai-chat.md),
 [recipes/membership-content.md](recipes/membership-content.md),
 [recipes/waitlist.md](recipes/waitlist.md),
-[recipes/directory.md](recipes/directory.md).
+[recipes/directory.md](recipes/directory.md),
+[recipes/digital-product.md](recipes/digital-product.md).
 
 Complex recipes (new tables or pages) also follow
 [recipes/_baseline.md](recipes/_baseline.md) and ship scripts under
@@ -30,7 +32,6 @@ Complex recipes (new tables or pages) also follow
 High reuse, write a recipe before applying:
 
 - `ai-studio` — chat + image + video, one credit pool
-- `digital-product` — one-time / lifetime unlock
 - `affiliate-content` — blog + affiliate + payment
 - `upload-tool` — `/upload` + storage + credits
 - `job-board` — directory variant
