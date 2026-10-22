@@ -502,17 +502,36 @@ download API redirects for that file and returns 403 for Icon Pack.
 Do **not** build these during apply. List them in the Step 5 closing report;
 build one only if the user asks.
 
-- **License key + `POST /api/licenses/verify`** — key per purchase, public
-  verify, admin revoke-by-key, rate limit.
-- **Multi-tier plans per product** (`dp_plan` Personal/Team) — drops the
-  one-plan-per-product unique constraint.
-- **Purchase email** — send download link after grant (starter email).
-- **Guest checkout / email recovery** — buy without account.
-- **Cart / coupons / invoices**
-- **Per-tier or versioned file sets** with changelog UI.
-- **PayPal return → `claimOrderPaid`** hardening (see above).
-- **Live Playwright** against Stripe test mode (manual / later).
-- **Admin hard-delete** (v1 = soft deactivate only).
+- **License key** — on grant, mint a key on `dp_purchase` (or a child table);
+  add `POST /api/licenses/verify` (public, rate-limited) that returns active /
+  revoked for a key; admin can revoke by key. Needed only if the product must
+  activate outside this site (desktop / plugin).
+- **Multi-tier plans per product** — e.g. Personal / Team for one slug: add
+  `dp_plan` (or drop `dp_product.pricing_plan_id` unique), product page shows
+  tier picker, checkout uses the selected plan. v1 stays one plan per product.
+- **Purchase email** — after `onDigitalProductOrderPaid`, send one mail with
+  the download link via starter email (same pattern as order receipts).
+- **Guest checkout / email recovery** — allow pay without login; store the
+  buyer email on the order / purchase; `/recover?token=…` (or magic link)
+  lists that email's downloads. Signed-in path in v1 stays unchanged.
+- **Cart** — multi-product checkout in one order (today: buy one product per
+  checkout on the product page).
+- **Coupons** — percent / fixed off at checkout; record code on the order.
+- **Invoices** — PDF or printable receipt from a paid order (amount, plan,
+  date); link from My purchases.
+- **Versioned file sets** — e.g. Starter Kit v1.zip and v2.zip on one product,
+  with a short changelog on the detail page; buyers get the latest, or every
+  version they paid for (pick one rule and document it).
+- **PayPal return → `claimOrderPaid`** — route PayPal return through
+  `claimOrderPaid` (or call `onDigitalProductOrderPaid` on already-paid) so a
+  crash mid-return still grants. See "PayPal return hardening" above; not
+  required for `verify.ts`.
+- **Live Playwright (Stripe test mode)** — browser E2E that completes a real
+  test Checkout and asserts purchase + download. Keep out of `verify.ts`
+  (verify stays fake orders only).
+- **Admin hard-delete** — permanently remove a product / file row. v1 only
+  soft-deactivates (`is_active = false`); prefer hard-delete only when no
+  purchases reference the row.
 
 ## Out of scope
 
