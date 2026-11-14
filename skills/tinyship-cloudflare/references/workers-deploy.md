@@ -27,7 +27,10 @@ npx wrangler secret put BETTER_AUTH_SECRET
 # If using Hyperdrive+PG (fallback connection)
 npx wrangler secret put DATABASE_URL
 
-# If using R2
+# If using R2 on shipeasy (S3 API credentials). tinyship-cf uses the
+# R2_BUCKET binding in wrangler.jsonc — do not set access keys there.
+# For tinyship-cf, set a real HTTPS custom domain in wrangler.jsonc vars:
+#   "R2_PUBLIC_URL": "https://static.yourdomain.com"
 npx wrangler secret put R2_ACCESS_KEY_ID
 npx wrangler secret put R2_ACCESS_KEY_SECRET
 
@@ -59,6 +62,10 @@ npx wrangler secret put TURNSTILE_SECRET_KEY
 ```bash
 npx wrangler secret bulk .secrets.json
 ```
+
+`R2_ACCESS_KEY_ID` / `R2_ACCESS_KEY_SECRET` belong in this file only for
+**shipeasy**. On **tinyship-cf**, do not import R2 access keys; set
+`R2_PUBLIC_URL` in `wrangler.jsonc` `vars` instead.
 
 ## 3. Pre-compile Email Templates
 

@@ -101,7 +101,7 @@ Notes:
 ### 5. Optional extras
 
 Ask about each, then read and follow the matching reference:
-- **R2 storage** — [references/r2-setup.md](references/r2-setup.md) (bucket already bound)
+- **R2 storage** — follow the **tinyship-cf** section in [references/r2-setup.md](references/r2-setup.md). The `R2_BUCKET` binding is already in `wrangler.jsonc`; create the bucket if needed and set `R2_PUBLIC_URL`. Do not create R2 API tokens or set `R2_ACCESS_KEY_ID` / `R2_ACCESS_KEY_SECRET`.
 - **Email Sending** — [references/email-setup.md](references/email-setup.md)
 - **Turnstile** — [references/turnstile-setup.md](references/turnstile-setup.md)
 
@@ -226,7 +226,7 @@ Check that the app loads and database-dependent pages work. Tell the user the re
 
 Ask: **Do you want to set up Cloudflare R2 for file storage (images, uploads)?**
 
-- **Yes** — read and follow [references/r2-setup.md](references/r2-setup.md)
+- **Yes** — read and follow the **shipeasy** section in [references/r2-setup.md](references/r2-setup.md) (S3 API credentials, not the Workers binding path)
 - **No** — skip (can be configured later)
 
 ### Step 5: Email Sending (Optional)
