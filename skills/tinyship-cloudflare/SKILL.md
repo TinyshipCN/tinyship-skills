@@ -61,7 +61,10 @@ If already logged in, skip and tell the user.
 cp apps/tanstack-app/.dev.vars.example apps/tanstack-app/.dev.vars
 ```
 
-Set `BETTER_AUTH_SECRET` (`openssl rand -hex 32`). Verify local dev:
+Set `BETTER_AUTH_SECRET` (`openssl rand -hex 32`). Optionally set
+`AI_SECRETS_ENCRYPTION_KEY` (at least 32 characters) to encrypt admin-saved
+AI provider keys; if it is unset or empty, `BETTER_AUTH_SECRET` is used and
+must be at least 32 characters. Verify local dev:
 
 ```bash
 pnpm dev   # http://localhost:7001
@@ -75,6 +78,12 @@ The D1 database is already bound in `wrangler.jsonc`. Apply migrations and verif
 npx wrangler d1 migrations apply tinyship-db --remote
 ```
 
+tinyship-cf 1.4.0 adds migration **0010** (`0010_ai_provider_settings`) for
+admin AI config tables `ai_provider_setting` / `ai_model_setting`. Apply
+migrations before deploying that release. This edition still does not include
+main-repo `ai_video_task` or #50 AI credit billing, so the migration number
+is 0010 rather than main-repo 0011.
+
 For Hyperdrive + PostgreSQL instead of D1, read and follow
 [references/hyperdrive-setup.md](references/hyperdrive-setup.md).
 
@@ -83,17 +92,25 @@ For Hyperdrive + PostgreSQL instead of D1, read and follow
 **⛔ STOP — ask the user which features they use, then set only those secrets.**
 
 ```bash
-npx wrangler secret put BETTER_AUTH_SECRET      # required
+npx wrangler secret put BETTER_AUTH_SECRET      # required (>= 32 chars; also used to encrypt admin AI keys if AI_SECRETS_ENCRYPTION_KEY is unset)
+# Optional: npx wrangler secret put AI_SECRETS_ENCRYPTION_KEY   # >= 32 chars; if set but too short, encryption fails closed
 # Payments (as needed): STRIPE_SECRET_KEY, PAYPAL_CLIENT_ID/SECRET,
 #   DODO_PAYMENTS_API_KEY/WEBHOOK_KEY, CREEM_API_KEY/WEBHOOK_SECRET
-# AI image/video (as needed): QWEN_API_KEY, FAL_API_KEY,
-#   GOOGLE_GENERATIVE_AI_API_KEY, VOLCENGINE_ACCESS_KEY_ID
+# AI (as needed, for official SDKs / admin fallback): OPENAI_API_KEY, DEEPSEEK_API_KEY,
+#   QWEN_API_KEY, FAL_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, VOLCENGINE_ACCESS_KEY_ID
 # Email: RESEND_API_KEY
 ```
 
 Notes:
-- **Chat AI needs no secret** — it runs on Workers AI + AI Gateway. Third-party
-  chat keys (OpenAI/DeepSeek) are managed in the AI Gateway dashboard (BYOK).
+- **Chat is hybrid in 1.4.0.** `workers-ai` and `@cf/` models always go
+  through AI Gateway (no third-party secret). When a key is resolved from
+  admin or a Worker secret / `.dev.vars`, OpenAI, DeepSeek, Qwen, Gemini, and
+  Volcengine use the official SDK. OpenAI / DeepSeek with no key still fall
+  back to AI Gateway (Gateway Stored Keys / BYOK or unified billing).
+- Admins manage already-integrated providers at `/{lang}/admin/ai` (add or
+  remove from the built-in catalog, override keys, add custom model IDs, run
+  a connection test). `workers-ai` has no key and no connection test; it is
+  treated as added while the AI binding is present, until removed in admin.
 - `AI_GATEWAY_ID` defaults to `default`; if the user's gateway has a different
   name, set it in `wrangler.jsonc` `vars`.
 - Payment webhook URLs in each provider dashboard must point to the production domain.
@@ -289,6 +306,7 @@ When executing this skill, read these files from the user's project for context:
 - `env.example` — all environment variables (shipeasy only)
 - `apps/tanstack-app/vite.config.ts` — CF plugin conditional loading
 - `docs/user-guide/deployment/cloudflare-workers.md` — full deployment guide
+- `docs/user-guide/ai/admin-config.md` — admin AI config, encryption, and Gateway vs official SDK
 - `config/storage.ts` — R2 config structure
 - `config/email.ts` — Email config structure
 - `config/captcha.ts` — Turnstile config structure
